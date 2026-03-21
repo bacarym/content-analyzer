@@ -1,0 +1,32 @@
+# Vercel
+.vercel/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Local data
+data/
+.oauth/
+.streamlit/
+
+# Legacy Streamlit app (superseded by FastAPI)
+app.py
+
+# Env / secrets
+.env
+.env.local
+*.secret
+
+# Design references
+_design_ref/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Migration scripts (one-time use)
+migrate_to_pg.py

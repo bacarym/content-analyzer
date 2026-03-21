@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SGNL — Content Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+    }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .bg-noise {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    }
+    .mask-fade-bottom {
+      -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+    }
+    .bottom-glow {
+      background: radial-gradient(ellipse 100% 100% at 50% 100%, rgba(255, 106, 0, 0.12) 0%, rgba(200, 30, 0, 0.04) 40%, rgba(0, 0, 0, 0) 80%);
+      filter: blur(20px);
+    }
+    iconify-icon { stroke-width: 1.5; }
+    .fade-in { animation: fadeIn .2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .spinner { border: 2px solid rgba(255,138,0,0.25); border-top-color: #FF8A00; border-radius: 50%; width: 16px; height: 16px; animation: spin .6s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    pre { white-space: pre-wrap; word-break: break-word; }
+    .btn-primary {
+      background: linear-gradient(to bottom right, #FF8A00, #E62E00);
+      box-shadow: 0 4px 12px rgba(230, 46, 0, 0.3);
+    }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .orange-glow { background: radial-gradient(circle at 50% 50%, rgba(255, 138, 0, 0.15) 0%, rgba(0, 0, 0, 0) 70%); }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    .shimmer { position: relative; overflow: hidden; }
+    .shimmer::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation: shimmer 2s infinite; }
+  </style>
+</head>
+<body class="bg-[#000000] text-[#E5E5EA] antialiased selection:bg-[#FF8A00]/30 selection:text-white h-screen overflow-hidden flex"
+      x-data="app()" x-init="init()">
+
+  <!-- ═══ Sidebar (desktop) ═══ -->
+  <aside class="hidden md:flex w-64 shrink-0 flex-col border-r border-white/[0.05] bg-[#000000] z-20">
+    <div class="h-16 flex items-center px-6 border-b border-white/[0.05]">
+      <span class="text-xl font-medium tracking-tighter text-white">SGNL</span>
+      <span class="ml-3 text-xs text-[#6b6b6b] uppercase tracking-widest mt-1">Analyzer</span>
+    </div>
+    <nav class="flex-1 px-3 py-6 space-y-6 overflow-y-auto no-scrollbar">
+      <div class="space-y-1">
+        <div class="text-xs font-medium text-[#8E8E93] px-3 mb-3 uppercase tracking-widest">Platform</div>
+        <button type="button" @click="tab = 'bookmarks'; selectedBm = null"
+                :class="tab === 'bookmarks' ? 'bg-white/[0.08] text-white' : 'text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]'"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors">
+          <iconify-icon icon="solar:compass-linear" class="text-lg shrink-0"></iconify-icon>
+          <span class="text-sm font-medium">Explore</span>
+        </button>
+        <button type="button" @click="tab = 'backlog'; selectedBm = null"
+                :class="tab === 'backlog' ? 'bg-white/[0.08] text-white' : 'text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]'"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors">
+          <iconify-icon icon="solar:checklist-minimalistic-linear" class="text-lg shrink-0"></iconify-icon>
+          <span class="text-sm font-medium">Backlog</span>
+          <span class="ml-auto bg-[#1C1C1E] text-xs px-1.5 py-0.5 rounded text-[#8E8E93]"
+                x-show="backlogIdeaCount > 0" x-text="backlogIdeaCount"></span>
+        </button>
+      </div>
+      <div class="space-y-1">
+        <div class="text-xs font-medium text-[#8E8E93] px-3 mb-3 uppercase tracking-widest">Output</div>
+        <button type="button" @click="tab = 'brief'; selectedBm = null"
+                :class="tab === 'brief' ? 'bg-white/[0.08] text-white' : 'text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]'"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors">
+          <iconify-icon icon="solar:document-text-linear" class="text-lg shrink-0"></iconify-icon>
+          <span class="text-sm font-medium">Briefs</span>
+        </button>
+        <button type="button" @click="tab = 'bookmarks'; filter.verdict = ''; selectedBm = null"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]">
+          <iconify-icon icon="solar:history-linear" class="text-lg shrink-0"></iconify-icon>
+          <span class="text-sm font-medium">History</span>
+        </button>
+      </div>
+    </nav>
+    <div class="p-4 border-t border-white/[0.05]">
+      <button class="flex items-center gap-3 w-full px-2 py-2 rounded-lg text-[#8E8E93] hover:text-white transition-colors">
+        <div class="w-8 h-8 rounded-full bg-[#1C1C1E] flex items-center justify-center border border-white/5">
+          <iconify-icon icon="solar:user-linear" class="text-sm"></iconify-icon>
+        </div>
+        <div class="flex flex-col items-start">
+          <span class="text-sm font-medium" x-text="`${stats.total_bookmarks || 0} contenus`"></span>
+          <span class="text-xs text-[#6b6b6b]" x-text="connected ? 'X connecté' : 'X non connecté'"></span>
+        </div>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══ Main Content ═══ -->
+  <main class="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative">
+    <div class="absolute inset-0 bg-noise mix-blend-overlay pointer-events-none opacity-50 z-0"></div>
+
+    <!-- ═══ LEFT COLUMN: List / Explore ═══ -->
+    <section class="w-full md:w-[380px] lg:w-[420px] flex flex-col border-r border-white/[0.05] bg-[#000000] z-10 h-full relative"
+             :class="{ 'hidden md:flex': selectedBm && tab === 'bookmarks' }"
+             x-show="tab === 'bookmarks'">
+
+      <!-- Header & Import -->
+      <div class="px-5 pt-6 pb-4 flex flex-col gap-4 border-b border-white/[0.05] bg-[#000000]/80 backdrop-blur-xl sticky top-0 z-20">
+        <div class="flex justify-between items-center">
+          <h1 class="text-xl font-medium tracking-tight text-white">Explore</h1>
+          <div class="flex items-center gap-1.5">
+            <button type="button" @click="refreshData()" :disabled="refreshing"
+                    class="w-9 h-9 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#D1D1D6] hover:bg-[#2C2C2E] transition-colors border border-white/5" title="Rafraîchir">
+              <iconify-icon icon="solar:refresh-linear" class="text-lg" :class="refreshing && 'animate-spin'"></iconify-icon>
+            </button>
+            <template x-if="!connected">
+              <button type="button" @click="connectX()"
+                      class="px-3 py-1.5 rounded-lg text-xs font-medium text-white btn-primary flex items-center gap-1.5">
+                <iconify-icon icon="solar:link-circle-linear"></iconify-icon> Connecter X
+              </button>
+            </template>
+            <template x-if="connected">
+              <div class="flex items-center gap-1.5">
+                <button type="button" @click="importBookmarks()" :disabled="importing"
+                        class="w-9 h-9 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#D1D1D6] hover:bg-[#2C2C2E] transition-colors border border-white/5" title="Importer bookmarks X">
+                  <span x-show="!importing"><iconify-icon icon="solar:download-minimalistic-linear" class="text-lg"></iconify-icon></span>
+                  <span x-show="importing" class="spinner"></span>
+                </button>
+                <button type="button" @click="disconnectX()"
+                        class="w-9 h-9 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#8E8E93] hover:text-[#FF3B30] transition-colors border border-white/5" title="Déconnecter X">
+                  <iconify-icon icon="solar:logout-2-linear" class="text-lg"></iconify-icon>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Quick Import Widget -->
+        <div class="bg-[#151517] rounded-xl p-1 border border-white/[0.03] flex items-center relative overflow-hidden group focus-within:border-white/10 transition-colors">
+          <div class="absolute inset-0 bg-gradient-to-r from-[#FF8A00]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <input type="text" x-model="addUrls" placeholder="Paste link or drop file..." class="w-full bg-transparent border-none outline-none text-sm px-3 py-2 text-[#E5E5EA] placeholder-[#6b6b6b] relative z-10 font-light">
+          <div class="flex items-center gap-1 pr-1 relative z-10">
+            <button type="button" @click="showAddPanel = !showAddPanel"
+                    class="p-1.5 rounded-lg text-[#8E8E93] hover:text-white hover:bg-white/5 transition-colors" title="Upload fichier">
+              <iconify-icon icon="solar:link-circle-linear" class="text-lg"></iconify-icon>
+            </button>
+            <button type="button" @click="submitAdHoc()" :disabled="adHocLoading"
+                    class="p-1.5 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors" title="Analyser">
+              <span x-show="!adHocLoading"><iconify-icon icon="solar:magic-stick-3-linear" class="text-lg"></iconify-icon></span>
+              <span x-show="adHocLoading" class="spinner" style="width:14px;height:14px;border-width:1.5px"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- File upload panel (collapsible) -->
+        <div x-show="showAddPanel" x-transition class="space-y-2">
+          <input type="file" multiple @change="addFiles = $event.target.files"
+                 class="w-full text-xs text-[#8E8E93] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#2C2C2E] file:text-[#E5E5EA] file:text-xs">
+        </div>
+
+        <!-- Filters -->
+        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
+          <button type="button" @click="filter.verdict = ''"
+                  :class="!filter.verdict ? 'bg-white/10 text-white border border-white/5' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+                  class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors">All Items</button>
+          <button type="button" @click="filter.verdict = 'SIGNAL'"
+                  :class="filter.verdict === 'SIGNAL' ? 'bg-[#34C759]/15 text-[#34C759] border border-[#34C759]/20' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+                  class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span> Signal
+            <span class="text-[10px] opacity-70" x-text="counts.signal || 0"></span>
+          </button>
+          <button type="button" @click="filter.verdict = 'MIXED'"
+                  :class="filter.verdict === 'MIXED' ? 'bg-[#FFCC00]/15 text-[#FFCC00] border border-[#FFCC00]/20' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+                  class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#FFCC00]"></span> Mixed
+            <span class="text-[10px] opacity-70" x-text="counts.mixed || 0"></span>
+          </button>
+          <button type="button" @click="filter.verdict = 'NOISE'"
+                  :class="filter.verdict === 'NOISE' ? 'bg-[#FF3B30]/15 text-[#FF3B30] border border-[#FF3B30]/20' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+                  class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#FF3B30]"></span> Noise
+            <span class="text-[10px] opacity-70" x-text="counts.noise || 0"></span>
+          </button>
+          <button type="button" @click="filter.verdict = 'NONE'"
+                  :class="filter.verdict === 'NONE' ? 'bg-white/10 text-white border border-white/5' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+                  class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors">
+            Pending <span class="text-[10px] opacity-70" x-text="counts.unanalyzed || 0"></span>
+          </button>
+        </div>
+
+        <!-- Search bar + sort -->
+        <div class="flex items-center gap-2">
+          <div class="flex-1 flex items-center bg-[#151517] rounded-lg border border-white/[0.03] px-3 py-1.5">
+            <iconify-icon icon="solar:magnifier-linear" class="text-[#6b6b6b] mr-2 text-sm"></iconify-icon>
+            <input type="text" x-model="filter.search" placeholder="Rechercher..." class="bg-transparent border-none outline-none text-xs text-[#E5E5EA] placeholder-[#6b6b6b] w-full font-light">
+          </div>
+          <select x-model="sortBy" class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E8E93] outline-none">
+            <option value="created_desc">Tweet récent</option>
+            <option value="created_asc">Tweet ancien</option>
+            <option value="fetched_desc">Import récent</option>
+            <option value="fetched_asc">Import ancien</option>
+            <option value="verdict">Verdict</option>
+            <option value="author">Auteur</option>
+          </select>
+        </div>
+
+        <!-- Topic + Date filters -->
+        <div class="flex items-center gap-2">
+          <div class="flex-1 relative" x-data="{ open: false }">
+            <button type="button" @click="open = !open" class="w-full flex items-center justify-between bg-[#151517] border border-white/[0.03] rounded-lg px-3 py-1.5 text-xs text-left transition-colors"
+                    :class="filter.tag ? 'text-[#FF8A00]' : 'text-[#6b6b6b]'">
+              <span class="flex items-center gap-1.5 truncate">
+                <iconify-icon icon="solar:tag-linear" class="text-sm shrink-0"></iconify-icon>
+                <span x-text="filter.tag || 'Topic'"></span>
+              </span>
+              <iconify-icon icon="solar:alt-arrow-down-linear" class="text-[10px] shrink-0 transition-transform" :class="open && 'rotate-180'"></iconify-icon>
+            </button>
+            <div x-show="open" @click.away="open = false" x-transition
+                 class="absolute top-full mt-1 left-0 right-0 bg-[#1C1C1E] border border-white/[0.08] rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto no-scrollbar py-1">
+              <button type="button" @click="filter.tag = ''; open = false"
+                      class="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                      :class="!filter.tag ? 'text-[#FF8A00]' : 'text-[#8E8E93]'">Tous les topics</button>
+              <template x-for="t in allTags" :key="t">
+                <button type="button" @click="filter.tag = t; open = false"
+                        class="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors truncate"
+                        :class="filter.tag === t ? 'text-[#FF8A00]' : 'text-[#D1D1D6]'" x-text="t"></button>
+              </template>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <input type="date" x-ref="dateFromInput"
+                   class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E8E93] outline-none w-[110px] [color-scheme:dark]" title="Date début">
+            <span class="text-[#6b6b6b] text-[10px]">→</span>
+            <input type="date" x-ref="dateToInput"
+                   class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E8E93] outline-none w-[110px] [color-scheme:dark]" title="Date fin">
+            <button type="button" @click="applyDateFilter()"
+                    class="px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-[#FF8A00] bg-[#FF8A00]/10 border border-[#FF8A00]/20 hover:bg-[#FF8A00]/20 transition-colors shrink-0">
+              OK
+            </button>
+          </div>
+          <button type="button" x-show="filter.tag || dateFrom || dateTo" @click="clearDateFilters(); $refs.dateFromInput.value = ''; $refs.dateToInput.value = ''"
+                  class="w-7 h-7 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#8E8E93] hover:text-[#FF3B30] border border-white/5 transition-colors shrink-0" title="Reset filtres">
+            <iconify-icon icon="solar:close-circle-linear" class="text-sm"></iconify-icon>
+          </button>
+        </div>
+
+        <!-- Batch actions -->
+        <div class="flex items-center gap-2 flex-wrap" x-show="filtered.length > 0">
+          <button x-show="filteredPending.length > 0 && !analyzing" type="button"
+                  @click="analyzeBatch(filteredPending)"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium text-white btn-primary flex items-center gap-1.5">
+            <span x-text="`Analyser ${filteredPending.length}`"></span>
+          </button>
+          <button x-show="!analyzing" type="button"
+                  @click="reanalyzeBatch(filtered.map(b => b.tweet_id))"
+                  class="px-3 py-1.5 rounded-lg text-[10px] font-medium text-[#FFCC00] bg-[#FFCC00]/10 border border-[#FFCC00]/20 hover:bg-[#FFCC00]/20 transition-colors">
+            <span x-text="(dateFrom || dateTo || filter.tag) ? `Re-analyser ${filtered.length} filtrés` : `Re-analyser tout`"></span>
+          </button>
+          <div x-show="analyzing" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FF8A00]/10 border border-[#FF8A00]/20">
+            <span class="spinner" style="width:12px;height:12px;border-width:1.5px"></span>
+            <span class="text-xs font-medium text-[#FF8A00]" x-text="analyzeProgress"></span>
+          </div>
+          <span class="text-[10px] text-[#6b6b6b] ml-auto" x-text="`${filtered.length} résultats`"></span>
+        </div>
+      </div>
+
+      <!-- Card List with pull-to-refresh -->
+      <div class="flex-1 overflow-y-auto no-scrollbar mask-fade-bottom pb-20" x-ref="listScroll"
+           @touchstart="pullStartY = $event.touches[0].clientY; pulling = false; pullDistance = 0;"
+           @touchmove="if ($refs.listScroll.scrollTop <= 0 && $event.touches[0].clientY - pullStartY > 0) { pulling = true; pullDistance = Math.max(0, Math.min(80, $event.touches[0].clientY - pullStartY)); if (pullDistance > 2) $event.preventDefault(); } else { pulling = false; pullDistance = 0; }"
+           @touchend="if (pulling && pullDistance > 50) { refreshData(); } pullDistance = 0; pulling = false;">
+        <!-- Pull indicator -->
+        <div class="flex justify-center items-center overflow-hidden transition-all duration-200"
+             :style="'height:' + pullDistance + 'px'">
+          <div x-show="pullDistance > 10" class="flex items-center gap-2 text-xs text-[#8E8E93]">
+            <iconify-icon icon="solar:refresh-linear" class="text-lg" :class="pullDistance > 50 ? 'text-[#FF8A00]' : ''"></iconify-icon>
+            <span x-text="pullDistance > 50 ? 'Relâcher pour rafraîchir' : 'Tirer pour rafraîchir'"></span>
+          </div>
+        </div>
+        <div class="flex flex-col">
+          <template x-for="bm in filtered" :key="bm.tweet_id">
+            <div class="p-5 border-b border-white/[0.03] cursor-pointer relative overflow-hidden transition-colors"
+                 :class="selectedBm && selectedBm.tweet_id === bm.tweet_id ? 'bg-[#1C1C1E]/40' : 'hover:bg-[#1C1C1E]/20'"
+                 @click="selectedBm = bm">
+              <div class="absolute left-0 top-0 bottom-0 w-[2px]"
+                   :class="bm.verdict === 'SIGNAL' ? 'bg-[#34C759]' : bm.verdict === 'MIXED' ? 'bg-[#FFCC00]' : bm.verdict === 'NOISE' ? 'bg-[#FF3B30]' : 'bg-transparent'"></div>
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center gap-2 text-xs text-[#8E8E93]">
+                  <iconify-icon :icon="bm.url && bm.url.includes('github') ? 'solar:code-square-linear' : bm.url && bm.url.startsWith('file://') ? 'solar:document-linear' : 'solar:hashtag-linear'" class="text-sm"></iconify-icon>
+                  <span x-text="'@' + bm.author_username"></span>
+                  <span>·</span>
+                  <span x-text="bm.created_at ? bm.created_at.slice(0, 10) : ''"></span>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[10px] font-medium tracking-wide uppercase"
+                      :class="bm.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : bm.verdict === 'MIXED' ? 'bg-[#FFCC00]/10 text-[#FFCC00]' : bm.verdict === 'NOISE' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-white/5 text-[#8E8E93]'"
+                      x-text="bm.verdict || 'Pending'">
+                </span>
+              </div>
+              <h3 class="text-base font-medium tracking-tight mb-1.5 leading-snug"
+                  :class="selectedBm && selectedBm.tweet_id === bm.tweet_id ? 'text-white' : 'text-[#E5E5EA]'"
+                  x-text="getTitle(bm)"></h3>
+              <p class="text-sm text-[#8E8E93] line-clamp-2 leading-relaxed font-light" x-text="bm.translation || bm.summary || (bm.content || '').slice(0, 150)"></p>
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <template x-for="tag in (bm.tags || []).slice(0, 3)" :key="tag">
+                  <span class="px-2 py-1 rounded bg-white/5 text-xs text-[#A1A1A6]" x-text="tag"></span>
+                </template>
+              </div>
+            </div>
+          </template>
+          <div x-show="filtered.length === 0" class="p-12 text-center">
+            <iconify-icon icon="solar:clipboard-remove-linear" class="text-4xl text-[#6b6b6b] mx-auto mb-3"></iconify-icon>
+            <p class="text-sm text-[#8E8E93] font-light">Aucun contenu ne correspond aux filtres.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ RIGHT COLUMN: Detail / Analysis / Backlog / Brief ═══ -->
+    <section class="flex-1 flex flex-col bg-[#09090b] relative z-10 overflow-hidden"
+             :class="{ 'hidden md:flex': !selectedBm && tab === 'bookmarks' }">
+
+      <!-- Toast -->
+      <div x-show="toast" x-transition x-cloak
+           class="fixed top-4 right-4 z-[100] max-w-sm px-4 py-3 rounded-2xl text-sm shadow-2xl border flex items-start gap-3"
+           :class="toastType === 'error' ? 'bg-[#1C1C1E] border-[#FF3B30]/30 text-[#FF3B30]' : 'bg-[#1C1C1E] border-[#34C759]/30 text-[#34C759]'">
+        <iconify-icon :icon="toastType === 'error' ? 'solar:danger-circle-linear' : 'solar:check-circle-linear'" class="text-lg shrink-0 mt-0.5"></iconify-icon>
+        <span x-text="toast" class="font-light text-[#E5E5EA]"></span>
+      </div>
+
+      <!-- ── Bookmarks Detail View ── -->
+      <template x-if="tab === 'bookmarks'">
+        <div class="flex-1 flex flex-col overflow-hidden">
+
+          <!-- Empty state (no selection) -->
+          <div x-show="!selectedBm" class="flex-1 flex items-center justify-center">
+            <div class="text-center space-y-4">
+              <div class="w-20 h-20 rounded-full bg-[#1C1C1E] mx-auto flex items-center justify-center">
+                <iconify-icon icon="solar:compass-linear" class="text-3xl text-[#6b6b6b]"></iconify-icon>
+              </div>
+              <div>
+                <p class="text-base font-medium text-[#D1D1D6]">Sélectionne un contenu</p>
+                <p class="text-sm text-[#8E8E93] font-light mt-1">L'analyse apparaîtra ici</p>
+              </div>
+              <div class="grid grid-cols-3 gap-3 max-w-xs mx-auto pt-4">
+                <div class="bg-[#1C1C1E] rounded-xl p-3 border border-white/5 text-center">
+                  <div class="text-xl font-medium text-[#34C759]" x-text="counts.signal || 0"></div>
+                  <div class="text-[10px] text-[#8E8E93] uppercase tracking-widest mt-0.5">Signal</div>
+                </div>
+                <div class="bg-[#1C1C1E] rounded-xl p-3 border border-white/5 text-center">
+                  <div class="text-xl font-medium text-[#FFCC00]" x-text="counts.mixed || 0"></div>
+                  <div class="text-[10px] text-[#8E8E93] uppercase tracking-widest mt-0.5">Mixed</div>
+                </div>
+                <div class="bg-[#1C1C1E] rounded-xl p-3 border border-white/5 text-center">
+                  <div class="text-xl font-medium text-[#FF3B30]" x-text="counts.noise || 0"></div>
+                  <div class="text-[10px] text-[#8E8E93] uppercase tracking-widest mt-0.5">Noise</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail Panel (selected bookmark) -->
+          <template x-if="selectedBm">
+            <div class="flex-1 flex flex-col overflow-hidden fade-in">
+              <!-- Detail Header -->
+              <div class="h-14 border-b border-white/[0.05] flex items-center justify-between px-6 bg-[#09090b]/80 backdrop-blur-xl z-20 shrink-0">
+                <div class="flex items-center gap-3">
+                  <button type="button" @click="selectedBm = null" class="md:hidden w-8 h-8 rounded-full bg-[#1C1C1E] flex items-center justify-center text-white border border-white/5">
+                    <iconify-icon icon="solar:alt-arrow-left-linear"></iconify-icon>
+                  </button>
+                  <span class="text-sm font-medium text-[#D1D1D6]">Analysis Report</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide"
+                        :class="selectedBm.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : selectedBm.verdict === 'MIXED' ? 'bg-[#FFCC00]/10 text-[#FFCC00]' : selectedBm.verdict === 'NOISE' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-white/5 text-[#8E8E93]'"
+                        x-text="selectedBm.verdict || 'Pending'"></span>
+                  <a :href="selectedBm.url" target="_blank" x-show="selectedBm.url && !selectedBm.url.startsWith('file://')"
+                     class="px-2 py-0.5 rounded text-[10px] font-medium text-[#8E8E93] hover:text-white bg-white/5 border border-white/5 transition-colors flex items-center gap-1">
+                    <iconify-icon icon="solar:arrow-right-up-linear" class="text-xs"></iconify-icon> Original
+                  </a>
+                </div>
+                <button type="button" @click="reanalyze(selectedBm.tweet_id)" :disabled="analyzing"
+                        class="px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium text-[#E5E5EA] hover:bg-white/5 transition-colors disabled:opacity-50">
+                  Re-analyser
+                </button>
+              </div>
+
+              <!-- Content (Scrollable) -->
+              <div class="flex-1 overflow-y-auto no-scrollbar px-6 lg:px-12 pt-8 pb-[180px] mask-fade-bottom">
+                <div class="max-w-3xl mx-auto">
+                  <!-- Title & Meta -->
+                  <div class="mb-10">
+                    <h1 class="text-2xl lg:text-3xl font-medium tracking-tight text-white mb-4 leading-tight" x-text="getTitle(selectedBm)"></h1>
+                    <div class="flex flex-wrap items-center gap-4 text-sm text-[#8E8E93]">
+                      <span class="flex items-center gap-1.5">
+                        <iconify-icon icon="solar:user-linear"></iconify-icon> <span x-text="selectedBm.author_name || selectedBm.author_username"></span>
+                      </span>
+                      <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                      <span x-text="selectedBm.created_at ? selectedBm.created_at.slice(0, 10) : ''"></span>
+                      <span class="w-1 h-1 rounded-full bg-white/20" x-show="selectedBm.verdict"></span>
+                      <span x-show="selectedBm.verdict === 'SIGNAL'" class="text-[#34C759] flex items-center gap-1">
+                        <iconify-icon icon="solar:verified-check-linear"></iconify-icon> High Signal
+                      </span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 mt-3">
+                      <span x-show="selectedBm.translation" class="px-2 py-0.5 rounded bg-[#FF8A00]/10 text-[#FF8A00] text-[10px] font-medium border border-[#FF8A00]/15">FR Traduit</span>
+                      <template x-for="tag in (selectedBm.tags || []).slice(0, 6)" :key="tag">
+                        <span class="px-2 py-1 rounded bg-white/5 border border-white/5 text-xs text-[#A1A1A6]" x-text="tag"></span>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- AI Analysis Block -->
+                  <div class="flex flex-col gap-8">
+                    <div class="flex flex-col items-start w-full">
+                      <div class="flex items-center gap-2.5 mb-4">
+                        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center text-white shadow-[0_2px_8px_rgba(230,46,0,0.3)]">
+                          <iconify-icon icon="solar:magic-stick-3-bold" class="text-[12px]"></iconify-icon>
+                        </div>
+                        <span class="text-sm font-medium text-white">Deep Analysis</span>
+                        <span class="text-xs text-[#8E8E93] ml-2 font-light">via Claude + Exa</span>
+                      </div>
+
+                      <div class="w-full bg-[#151517] rounded-[24px] rounded-tl-sm p-6 border border-white/[0.03] shadow-lg space-y-6">
+
+                        <!-- Translation (collapsible) -->
+                        <details x-show="selectedBm.translation" class="group rounded-xl bg-[#FF8A00]/5 border border-[#FF8A00]/15 overflow-hidden">
+                          <summary class="px-4 py-3 text-xs font-medium text-[#FF8A00] uppercase tracking-widest cursor-pointer hover:bg-[#FF8A00]/10 transition-colors flex items-center gap-2 select-none">
+                            <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                            Traduction FR
+                          </summary>
+                          <div class="px-4 pb-4">
+                            <p class="text-sm text-[#E5E5EA] font-light leading-relaxed" x-text="selectedBm.translation"></p>
+                          </div>
+                        </details>
+
+                        <!-- ELI5 Summary (open by default) -->
+                        <div x-show="selectedBm.eli5">
+                          <h2 class="text-base font-medium text-white mb-2 tracking-tight flex items-center gap-2">
+                            <iconify-icon icon="solar:lightbulb-bolt-linear" class="text-[#FFCC00]"></iconify-icon> ELI5 Summary
+                          </h2>
+                          <p class="text-sm text-[#A1A1A6] leading-relaxed font-light" x-text="selectedBm.eli5"></p>
+                        </div>
+
+                        <!-- Conclusion (open by default) -->
+                        <div x-show="selectedBm.conclusion">
+                          <h2 class="text-xs font-medium text-[#FF8A00] uppercase tracking-widest mb-2">Conclusion</h2>
+                          <p class="text-sm text-[#D1D1D6] leading-relaxed font-light" x-text="selectedBm.conclusion"></p>
+                        </div>
+
+                        <!-- Feature Ideas (open by default) -->
+                        <div x-show="selectedBm.feature_ideas">
+                          <h2 class="text-base font-medium text-white mb-3 tracking-tight flex items-center gap-2">
+                            <iconify-icon icon="solar:star-shine-linear" class="text-[#BF5AF2]"></iconify-icon> Feature Ideas
+                          </h2>
+                          <div class="p-4 rounded-xl bg-[#BF5AF2]/5 border border-[#BF5AF2]/15">
+                            <pre class="text-sm text-[#E5E5EA] font-light leading-relaxed whitespace-pre-wrap" x-text="selectedBm.feature_ideas"></pre>
+                          </div>
+                        </div>
+
+                        <!-- Claims Check (collapsible) -->
+                        <details x-show="selectedBm.claims_check && selectedBm.claims_check !== 'N/A'" class="group rounded-xl border border-white/[0.05] overflow-hidden">
+                          <summary class="px-4 py-3 text-xs font-medium text-[#34C759] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none">
+                            <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                            <iconify-icon icon="solar:shield-check-linear"></iconify-icon> Claims Check
+                          </summary>
+                          <div class="px-4 pb-4">
+                            <pre class="text-xs text-[#8E8E93] font-light bg-[#09090b] rounded-xl p-4 border border-white/[0.05] leading-relaxed" x-text="selectedBm.claims_check"></pre>
+                          </div>
+                        </details>
+
+                        <!-- Red Flags (collapsible) -->
+                        <details x-show="selectedBm.red_flags && selectedBm.red_flags !== 'Aucun' && selectedBm.red_flags !== 'N/A'" class="group rounded-xl border border-[#FF3B30]/15 overflow-hidden">
+                          <summary class="px-4 py-3 text-xs font-medium text-[#FF3B30] uppercase tracking-widest cursor-pointer hover:bg-[#FF3B30]/5 transition-colors flex items-center gap-2 select-none">
+                            <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                            <iconify-icon icon="solar:danger-circle-linear"></iconify-icon> Red Flags
+                          </summary>
+                          <div class="px-4 pb-4">
+                            <div class="p-4 rounded-xl bg-[#FF3B30]/5">
+                              <p class="text-sm text-[#FF3B30]/90 font-light leading-relaxed" x-text="selectedBm.red_flags"></p>
+                            </div>
+                          </div>
+                        </details>
+
+                        <!-- Extracted Opportunities (collapsible) -->
+                        <details x-show="selectedBm.actionable && selectedBm.actionable !== 'N/A'" class="group rounded-xl border border-white/[0.05] overflow-hidden">
+                          <summary class="px-4 py-3 text-xs font-medium text-[#FF8A00] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none">
+                            <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                            <iconify-icon icon="solar:bolt-linear"></iconify-icon> Extracted Opportunities
+                          </summary>
+                          <div class="px-4 pb-4">
+                            <pre class="text-sm text-[#E5E5EA] font-light bg-[#09090b] rounded-xl p-4 border border-white/5 leading-relaxed" x-text="selectedBm.actionable"></pre>
+                          </div>
+                        </details>
+
+                        <!-- Repo Analysis (collapsible) -->
+                        <details x-show="selectedBm.repo_analysis" class="group rounded-xl border border-white/[0.05] overflow-hidden">
+                          <summary class="px-4 py-3 text-xs font-medium text-[#8E8E93] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none">
+                            <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                            Repo Analysis
+                          </summary>
+                          <div class="px-4 pb-4">
+                            <pre class="text-xs text-[#8E8E93] font-light bg-[#09090b] rounded-xl p-3 border border-white/[0.05]" x-text="selectedBm.repo_analysis"></pre>
+                          </div>
+                        </details>
+
+                        <!-- Web Research (collapsible) -->
+                        <details x-show="selectedBm.web_research_summary" class="group rounded-xl border border-white/[0.05] overflow-hidden">
+                          <summary class="px-4 py-3 text-xs font-medium text-[#8E8E93] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none">
+                            <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                            Web Research
+                          </summary>
+                          <div class="px-4 pb-4">
+                            <pre class="text-xs text-[#8E8E93] font-light bg-[#09090b] rounded-xl p-3 border border-white/[0.05]" x-text="selectedBm.web_research_summary"></pre>
+                          </div>
+                        </details>
+
+                        <!-- Original Content (collapsible) -->
+                        <details class="group rounded-xl border border-white/[0.05] overflow-hidden">
+                          <summary class="px-4 py-3 text-xs text-[#6b6b6b] cursor-pointer hover:text-white transition-colors flex items-center gap-2 select-none">
+                            <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                            Contenu original
+                          </summary>
+                          <div class="px-4 pb-4">
+                            <pre class="text-xs text-[#6b6b6b] bg-[#000000] rounded-xl p-4 max-h-48 overflow-auto border border-white/[0.05]" x-text="selectedBm.content"></pre>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chat FAB -->
+              <button type="button" @click="openChat()"
+                      class="absolute bottom-24 md:bottom-28 right-6 z-30 w-14 h-14 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shadow-[0_4px_20px_rgba(230,46,0,0.4)] hover:scale-110 transition-transform group">
+                <div class="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 to-transparent opacity-50"></div>
+                <iconify-icon icon="solar:chat-round-dots-bold" class="text-white text-2xl relative z-10"></iconify-icon>
+              </button>
+
+              <!-- Bottom Action Bar -->
+              <div class="absolute bottom-0 left-0 right-0 z-20 pointer-events-none hidden md:block">
+                <div class="absolute bottom-0 left-0 w-full h-[200px] bottom-glow -z-10"></div>
+                <div class="max-w-3xl mx-auto px-6 pb-8 pt-4 pointer-events-auto">
+                  <div class="bg-[#1C1C1E]/95 backdrop-blur-xl rounded-[24px] p-2 pl-4 flex items-center justify-between border border-white/[0.08] shadow-2xl relative">
+                    <div class="flex items-center gap-2 text-[#8E8E93] flex-1">
+                      <iconify-icon icon="solar:document-add-linear" class="text-lg"></iconify-icon>
+                      <input type="text" x-model="briefRequest" placeholder="Décris un projet pour générer un brief..." class="bg-transparent border-none outline-none text-sm text-white placeholder-[#6b6b6b] w-full font-light">
+                    </div>
+                    <button type="button" @click="tab = 'brief'; generateBrief()" :disabled="generatingBrief || !briefRequest.trim()"
+                            class="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shadow-[0_4px_12px_rgba(230,46,0,0.4)] flex-shrink-0 relative overflow-hidden group hover:scale-105 transition-transform disabled:opacity-50">
+                      <div class="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-50"></div>
+                      <span x-show="!generatingBrief"><iconify-icon icon="solar:magic-stick-3-bold" class="text-white relative z-10 text-lg"></iconify-icon></span>
+                      <span x-show="generatingBrief" class="spinner relative z-10" style="width:16px;height:16px;border-color:rgba(255,255,255,0.3);border-top-color:white"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <!-- ── Backlog View ── -->
+      <template x-if="tab === 'backlog'">
+        <div class="flex-1 overflow-y-auto no-scrollbar px-6 lg:px-12 py-8 fade-in">
+          <div class="max-w-3xl mx-auto space-y-6">
+            <div class="mb-8">
+              <h1 class="text-2xl font-medium tracking-tight text-white mb-2">Backlog d'idées</h1>
+              <p class="text-sm text-[#8E8E93] font-light">Idées extraites des analyses, groupées par projet et triées par score d'opportunité.</p>
+            </div>
+
+            <template x-if="Object.keys(backlogProjects).length === 0">
+              <div class="text-center py-16 text-[#8E8E93] font-light border border-dashed border-white/[0.08] rounded-2xl bg-[#151517]/50">
+                <iconify-icon icon="solar:checklist-minimalistic-linear" class="text-4xl text-[#6b6b6b] mx-auto mb-3"></iconify-icon>
+                <p>Aucune idée pour l'instant — lance des analyses avec des actions concrètes.</p>
+              </div>
+            </template>
+
+            <div class="space-y-4">
+              <template x-for="[project, ideas] in Object.entries(backlogProjects)" :key="project">
+                <div class="rounded-2xl border border-white/[0.05] bg-[#151517] overflow-hidden">
+                  <div class="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3 bg-[#1C1C1E]/40">
+                    <div class="w-1 h-5 bg-[#FF8A00] rounded-full"></div>
+                    <span class="text-base font-medium text-white tracking-tight" x-text="project"></span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-[#FF8A00]/10 text-[#FF8A00] ml-auto" x-text="`${ideas.length} idées`"></span>
+                  </div>
+                  <div class="divide-y divide-white/[0.05]">
+                    <template x-for="(idea, idx) in ideas" :key="idx">
+                      <div class="p-5 flex gap-4 hover:bg-white/[0.02] transition-colors">
+                        <div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold"
+                             :class="idea.score >= 7 ? 'bg-[#34C759]/15 text-[#34C759]' : idea.score >= 4 ? 'bg-[#FFCC00]/15 text-[#FFCC00]' : 'bg-white/5 text-[#8E8E93]'"
+                             x-text="idea.score"></div>
+                        <div class="min-w-0 flex-1">
+                          <p class="text-sm text-[#E5E5EA] font-light leading-relaxed" x-text="idea.text"></p>
+                          <div class="flex flex-wrap items-center gap-3 mt-2">
+                            <span class="text-[10px] text-[#6b6b6b]" x-text="'@' + idea.author"></span>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide"
+                                  :class="idea.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FFCC00]/10 text-[#FFCC00]'"
+                                  x-text="idea.verdict"></span>
+                            <a :href="idea.url" target="_blank" x-show="idea.url" class="text-[10px] text-[#FF8A00] hover:underline flex items-center gap-0.5">
+                              <iconify-icon icon="solar:arrow-right-up-linear" class="text-xs"></iconify-icon> Source
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ── Brief View ── -->
+      <template x-if="tab === 'brief'">
+        <div class="flex-1 overflow-y-auto no-scrollbar px-6 lg:px-12 py-8 fade-in">
+          <div class="max-w-3xl mx-auto space-y-8">
+
+            <!-- Brief Generator -->
+            <div class="rounded-3xl border border-white/[0.06] bg-[#1C1C1E] p-6 lg:p-8 relative overflow-hidden">
+              <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[70%] h-24 bg-gradient-to-t from-[#FF8A00]/10 to-transparent blur-2xl pointer-events-none"></div>
+              <div class="relative z-10 space-y-4">
+                <div class="flex items-center gap-2 mb-1">
+                  <div class="w-1 h-4 bg-[#FF8A00] rounded-full"></div>
+                  <h2 class="text-lg font-medium tracking-tight text-white">Générateur de brief</h2>
+                </div>
+                <label class="text-xs font-medium text-[#8E8E93] block">Décris ce que tu veux construire</label>
+                <textarea x-model="briefRequest" rows="3" placeholder="Ex. orchestrateur multi-agents pour le support…"
+                          class="w-full bg-[#09090b] border border-white/[0.08] rounded-2xl px-4 py-3 text-sm text-[#E5E5EA] placeholder-[#6b6b6b] outline-none focus:border-white/20 resize-none font-light"></textarea>
+                <div class="flex flex-wrap items-center gap-3">
+                  <select x-model="briefQuality" class="bg-[#151517] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-[#E5E5EA]">
+                    <option value="3">Signal seulement</option>
+                    <option value="2">Signal + Mixed</option>
+                    <option value="1">Tout</option>
+                  </select>
+                  <button type="button" @click="generateBrief()" :disabled="generatingBrief || !briefRequest.trim()"
+                          class="px-5 py-2.5 rounded-xl text-sm font-medium text-white btn-primary disabled:opacity-50 flex items-center gap-2">
+                    <span x-show="!generatingBrief" class="flex items-center gap-2">Générer <iconify-icon icon="solar:arrow-right-linear"></iconify-icon></span>
+                    <span x-show="generatingBrief" class="flex items-center gap-2"><span class="spinner"></span></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Current Brief Output -->
+            <template x-if="currentBrief && !currentBrief.error">
+              <div class="rounded-2xl border border-white/[0.06] bg-[#151517] overflow-hidden">
+                <div class="px-6 py-5 border-b border-white/[0.05] bg-[#FF8A00]/5">
+                  <h3 class="text-xl font-medium text-white tracking-tight" x-text="currentBrief.project_name || 'Brief'"></h3>
+                  <p class="text-sm text-[#8E8E93] font-light mt-1" x-text="currentBrief.objective"></p>
+                </div>
+                <div class="p-6 space-y-5">
+                  <template x-if="currentBrief.tech_stack_suggestion">
+                    <div>
+                      <div class="text-xs font-medium text-[#FF8A00] uppercase tracking-widest mb-1">Stack</div>
+                      <p class="text-sm text-[#D1D1D6] font-light" x-text="currentBrief.tech_stack_suggestion"></p>
+                    </div>
+                  </template>
+                  <template x-if="currentBrief.architecture_notes">
+                    <div>
+                      <div class="text-xs font-medium text-[#8E8E93] uppercase tracking-widest mb-1">Architecture</div>
+                      <p class="text-sm text-[#D1D1D6] font-light" x-text="currentBrief.architecture_notes"></p>
+                    </div>
+                  </template>
+                  <template x-if="currentBrief.relevant_resources && currentBrief.relevant_resources.length">
+                    <div>
+                      <div class="text-xs font-medium text-[#34C759] uppercase tracking-widest mb-2">Ressources</div>
+                      <div class="space-y-2">
+                        <template x-for="res in currentBrief.relevant_resources" :key="res.url">
+                          <div class="flex items-center gap-2 text-sm flex-wrap">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase"
+                                  :class="res.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FFCC00]/10 text-[#FFCC00]'"
+                                  x-text="res.verdict"></span>
+                            <a :href="res.url" target="_blank" class="text-[#FF8A00] hover:underline truncate max-w-[200px]" x-text="res.title"></a>
+                            <span class="text-xs text-[#6b6b6b] truncate" x-text="res.why"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                  <template x-if="currentBrief.risks">
+                    <div class="p-4 rounded-xl bg-[#FF3B30]/10 border border-[#FF3B30]/20">
+                      <div class="text-xs font-medium text-[#FF3B30] mb-1">Risques</div>
+                      <p class="text-sm text-[#E5E5EA] font-light" x-text="currentBrief.risks"></p>
+                    </div>
+                  </template>
+                  <template x-if="currentBrief.next_steps && currentBrief.next_steps.length">
+                    <div>
+                      <div class="text-xs font-medium text-[#FFCC00] uppercase tracking-widest mb-2">Prochaines étapes</div>
+                      <ol class="text-sm text-[#D1D1D6] font-light list-decimal list-inside space-y-1">
+                        <template x-for="(step, i) in currentBrief.next_steps" :key="i">
+                          <li x-text="step"></li>
+                        </template>
+                      </ol>
+                    </div>
+                  </template>
+                  <div class="pt-4 border-t border-white/[0.06]">
+                    <div class="flex gap-2 mb-3">
+                      <button type="button" @click="briefPromptTab = 'cursor'"
+                              :class="briefPromptTab === 'cursor' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Cursor</button>
+                      <button type="button" @click="briefPromptTab = 'claude'"
+                              :class="briefPromptTab === 'claude' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Claude Code</button>
+                    </div>
+                    <div class="relative">
+                      <pre class="text-xs text-[#D1D1D6] font-mono bg-[#000000] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
+                           x-text="briefPromptTab === 'cursor' ? currentBrief.cursor_prompt : currentBrief.claude_code_prompt"></pre>
+                      <button type="button" @click="copyToClipboard(briefPromptTab === 'cursor' ? currentBrief.cursor_prompt : currentBrief.claude_code_prompt)"
+                              class="absolute top-2 right-2 px-3 py-1 rounded-lg text-xs font-medium bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA] hover:bg-white/5">
+                        Copier
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Brief History -->
+            <div x-show="briefs.length > 0">
+              <h3 class="text-xs font-medium text-[#8E8E93] uppercase tracking-widest mb-3">Historique</h3>
+              <div class="space-y-2">
+                <template x-for="brief in briefs" :key="brief.id">
+                  <div class="rounded-xl border border-white/[0.06] bg-[#151517] overflow-hidden">
+                    <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.02]" @click="brief._open = !brief._open">
+                      <div class="min-w-0 flex items-center gap-3">
+                        <iconify-icon icon="solar:document-bold-duotone" class="text-[#34C759] text-xl shrink-0"></iconify-icon>
+                        <div class="min-w-0">
+                          <span class="text-sm font-medium text-white block truncate" x-text="brief.data.project_name || brief.request.slice(0, 50)"></span>
+                          <span class="text-[10px] text-[#6b6b6b]" x-text="brief.created_at ? brief.created_at.slice(0, 10) : ''"></span>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" @click.stop="deleteBrief(brief.id)" class="text-[10px] text-[#FF3B30] hover:underline px-2">Supprimer</button>
+                        <iconify-icon icon="solar:alt-arrow-down-linear" class="text-[#6b6b6b] transition-transform" :class="brief._open && 'rotate-180'"></iconify-icon>
+                      </div>
+                    </div>
+                    <div x-show="brief._open" x-transition class="border-t border-white/[0.05] p-4 space-y-3 bg-[#09090b]/50">
+                      <p class="text-xs text-[#8E8E93] font-light"><span class="text-[#6b6b6b]">Demande · </span><span x-text="brief.request"></span></p>
+                      <template x-if="brief.data.objective">
+                        <p class="text-sm text-[#E5E5EA] font-light" x-text="brief.data.objective"></p>
+                      </template>
+                      <div class="flex gap-2 flex-wrap">
+                        <button type="button" @click="copyToClipboard(brief.data.cursor_prompt || '')"
+                                class="px-3 py-1.5 rounded-lg text-xs bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA]">Copier Cursor</button>
+                        <button type="button" @click="copyToClipboard(brief.data.claude_code_prompt || '')"
+                                class="px-3 py-1.5 rounded-lg text-xs bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA]">Copier Claude</button>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+    </section>
+  </main>
+
+  <!-- ═══ Chat Panel (slide-over) ═══ -->
+  <div x-show="chatOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+       class="fixed inset-y-0 right-0 w-full md:w-[440px] bg-[#0a0a0c] border-l border-white/[0.05] z-[60] flex flex-col shadow-2xl" x-cloak>
+    <!-- Chat Header -->
+    <div class="h-14 border-b border-white/[0.05] flex items-center justify-between px-5 bg-[#0a0a0c]/80 backdrop-blur-xl shrink-0">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shadow-[0_2px_8px_rgba(230,46,0,0.3)]">
+          <iconify-icon icon="solar:chat-round-dots-bold" class="text-white text-xs"></iconify-icon>
+        </div>
+        <span class="text-sm font-medium text-white">Chat</span>
+        <span class="text-xs text-[#6b6b6b] font-light truncate max-w-[200px]" x-text="selectedBm ? getTitle(selectedBm).slice(0, 40) : ''"></span>
+      </div>
+      <button type="button" @click="chatOpen = false" class="w-8 h-8 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#8E8E93] hover:text-white border border-white/5 transition-colors">
+        <iconify-icon icon="solar:close-circle-linear"></iconify-icon>
+      </button>
+    </div>
+
+    <!-- Chat Messages -->
+    <div class="flex-1 overflow-y-auto no-scrollbar px-5 py-4 space-y-4" x-ref="chatScroll">
+      <!-- System context note -->
+      <div class="text-center py-3">
+        <span class="text-[10px] text-[#6b6b6b] bg-[#1C1C1E] px-3 py-1 rounded-full">Claude a le contexte complet de cette analyse</span>
+      </div>
+
+      <template x-for="(msg, i) in chatMessages" :key="i">
+        <div class="flex gap-3" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+          <div x-show="msg.role === 'assistant'" class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shrink-0 mt-1 shadow-sm">
+            <iconify-icon icon="solar:magic-stick-3-bold" class="text-white text-[10px]"></iconify-icon>
+          </div>
+          <div class="max-w-[85%] rounded-2xl px-4 py-3 text-sm font-light leading-relaxed"
+               :class="msg.role === 'user' ? 'bg-[#FF8A00]/15 text-[#E5E5EA] rounded-br-sm' : 'bg-[#1C1C1E] text-[#D1D1D6] border border-white/[0.05] rounded-tl-sm'">
+            <div x-html="renderChat(msg.content)"></div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Typing indicator -->
+      <div x-show="chatLoading" class="flex gap-3">
+        <div class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shrink-0 mt-1">
+          <iconify-icon icon="solar:magic-stick-3-bold" class="text-white text-[10px]"></iconify-icon>
+        </div>
+        <div class="bg-[#1C1C1E] border border-white/[0.05] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:0ms"></span>
+          <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:150ms"></span>
+          <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:300ms"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Input -->
+    <div class="border-t border-white/[0.05] p-4 bg-[#0a0a0c]/80 backdrop-blur-xl shrink-0">
+      <div class="flex gap-2 mb-2">
+        <button type="button" @click="chatInput = 'Quelles sont les alternatives ?'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Alternatives ?</button>
+        <button type="button" @click="chatInput = 'Comment intégrer ça dans mes projets ?'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Pour mes projets ?</button>
+        <button type="button" @click="chatInput = 'Fais une recherche approfondie sur ce sujet'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Recherche +</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="text" x-model="chatInput" @keydown.enter.prevent="sendChat()" placeholder="Pose une question sur ce contenu..."
+               class="flex-1 bg-[#151517] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-[#E5E5EA] placeholder-[#6b6b6b] outline-none focus:border-white/15 font-light">
+        <button type="button" @click="sendChat()" :disabled="chatLoading || !chatInput.trim()"
+                class="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shrink-0 shadow-[0_4px_12px_rgba(230,46,0,0.3)] hover:scale-105 transition-transform disabled:opacity-50">
+          <iconify-icon icon="solar:arrow-up-bold" class="text-white text-lg"></iconify-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- Chat backdrop (mobile) -->
+  <div x-show="chatOpen" @click="chatOpen = false" class="fixed inset-0 bg-black/50 z-[55] md:hidden" x-transition.opacity x-cloak></div>
+
+  <!-- ═══ Mobile Bottom Navigation ═══ -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1C1C1E]/90 backdrop-blur-xl border-t border-white/5 pb-[env(safe-area-inset-bottom)] pt-2 px-6 flex justify-between items-center z-50 h-[72px]">
+    <button type="button" @click="tab = 'bookmarks'; selectedBm = null" class="flex flex-col items-center gap-1"
+            :class="tab === 'bookmarks' ? 'text-white' : 'text-[#8E8E93]'">
+      <iconify-icon :icon="tab === 'bookmarks' ? 'solar:compass-bold' : 'solar:compass-linear'" class="text-xl"></iconify-icon>
+      <span class="text-[10px] font-medium">Explore</span>
+    </button>
+    <button type="button" @click="tab = 'backlog'; selectedBm = null" class="flex flex-col items-center gap-1"
+            :class="tab === 'backlog' ? 'text-white' : 'text-[#8E8E93]'">
+      <iconify-icon :icon="tab === 'backlog' ? 'solar:checklist-minimalistic-bold' : 'solar:checklist-minimalistic-linear'" class="text-xl"></iconify-icon>
+      <span class="text-[10px] font-medium">Backlog</span>
+    </button>
+    <button type="button" @click="showAddPanel = true; tab = 'bookmarks'"
+            class="w-12 h-12 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shadow-[0_4px_12px_rgba(230,46,0,0.3)] -mt-6 border-4 border-[#000000]">
+      <iconify-icon icon="solar:magic-stick-3-bold" class="text-white text-xl"></iconify-icon>
+    </button>
+    <button type="button" @click="tab = 'brief'; selectedBm = null" class="flex flex-col items-center gap-1"
+            :class="tab === 'brief' ? 'text-white' : 'text-[#8E8E93]'">
+      <iconify-icon :icon="tab === 'brief' ? 'solar:document-text-bold' : 'solar:document-text-linear'" class="text-xl"></iconify-icon>
+      <span class="text-[10px] font-medium">Briefs</span>
+    </button>
+    <button type="button" @click="tab = 'bookmarks'; filter.verdict = ''; selectedBm = null" class="flex flex-col items-center gap-1 text-[#8E8E93]">
+      <iconify-icon icon="solar:history-linear" class="text-xl"></iconify-icon>
+      <span class="text-[10px] font-medium">History</span>
+    </button>
+  </nav>
+
+<script>
+function app() {
+  return {
+    tab: 'bookmarks',
+    bookmarks: [],
+    stats: {},
+    counts: {},
+    connected: false,
+    importing: false,
+    analyzing: false,
+    analyzeProgress: '',
+    showAddPanel: false,
+    addUrls: '',
+    addFiles: null,
+    toast: '',
+    toastType: 'ok',
+    adHocLoading: false,
+    sortBy: 'created_desc',
+    filter: { verdict: '', tag: '', search: '' },
+    dateFrom: '',
+    dateTo: '',
+    briefRequest: '',
+    briefQuality: '2',
+    generatingBrief: false,
+    currentBrief: null,
+    briefPromptTab: 'cursor',
+    briefs: [],
+    selectedBm: null,
+    refreshing: false,
+    pullStartY: 0,
+    pulling: false,
+    pullDistance: 0,
+    chatOpen: false,
+    chatMessages: [],
+    chatInput: '',
+    chatLoading: false,
+
+    get allTags() {
+      const tagMap = {};
+      for (const bm of this.bookmarks) {
+        for (const t of (bm.tags || [])) {
+          const key = t.trim().toLowerCase();
+          if (key) tagMap[key] = (tagMap[key] || 0) + 1;
+        }
+      }
+      return Object.entries(tagMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([tag]) => tag);
+    },
+
+    get backlogIdeaCount() {
+      const g = this.backlogProjects;
+      let n = 0;
+      for (const arr of Object.values(g)) {
+        if (Array.isArray(arr)) n += arr.length;
+      }
+      return n;
+    },
+
+    async init() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+      if (code) {
+        window.history.replaceState({}, '', '/');
+        try {
+          const r = await fetch('/api/oauth/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, state: state || '' }),
+          });
+          const d = await r.json();
+          if (d.connected) {
+            this.connected = true;
+            this.showToast('X connecté');
+          } else {
+            this.showToast(d.error || 'Erreur connexion X', 'error');
+          }
+        } catch (e) {
+          this.showToast('Erreur callback OAuth', 'error');
+        }
+      }
+      await this.loadData();
+      await this.loadBriefs();
+    },
+
+    getTitle(bm) {
+      const raw = bm.content || '';
+      const source = this.needsTranslation(raw) && (bm.summary || bm.eli5)
+        ? (bm.summary || bm.eli5) : raw;
+      const line = source.split(/\n/)[0].trim();
+      if (!line) return bm.author_name || 'Sans titre';
+      if (line.length > 100) return line.slice(0, 97) + '...';
+      return line;
+    },
+
+    needsTranslation(content) {
+      if (!content) return false;
+      const sample = content.slice(0, 200);
+      const nonLatin = (sample.match(/[^\u0000-\u024F\u1E00-\u1EFF\s\d.,!?@#$%&*(){}[\]:;"'<>/\\|`~\-_+=^]/g) || []).length;
+      return nonLatin > sample.length * 0.15;
+    },
+
+    applyDateFilter() {
+      this.dateFrom = this.$refs.dateFromInput.value || '';
+      this.dateTo = this.$refs.dateToInput.value || '';
+    },
+
+    clearDateFilters() {
+      this.dateFrom = '';
+      this.dateTo = '';
+      this.filter.tag = '';
+    },
+
+    async refreshData() {
+      this.refreshing = true;
+      await this.loadData();
+      await this.loadBriefs();
+      this.refreshing = false;
+      this.showToast('Données actualisées');
+    },
+
+    async loadData() {
+      try {
+        const r = await fetch('/api/data');
+        const d = await r.json();
+        this.bookmarks = d.bookmarks.map(b => ({ ...b, _open: false }));
+        this.stats = d.stats;
+        this.counts = d.counts;
+        this.connected = d.connected;
+      } catch(e) {
+        this.showToast('Erreur de chargement', 'error');
+      }
+    },
+
+    get filtered() {
+      let list = this.bookmarks;
+      const f = this.filter;
+      const df = this.dateFrom;
+      const dt = this.dateTo;
+      if (f.verdict) {
+        if (f.verdict === 'NONE') list = list.filter(b => !b.has_analysis);
+        else list = list.filter(b => b.verdict === f.verdict);
+      }
+      if (f.tag) {
+        const tags = f.tag.toLowerCase().split(',').map(t => t.trim());
+        list = list.filter(b => (b.tags||[]).some(t => tags.some(ft => t.toLowerCase().includes(ft))));
+      }
+      if (f.search) {
+        const q = f.search.toLowerCase();
+        list = list.filter(b => (b.content||'').toLowerCase().includes(q) || (b.summary||'').toLowerCase().includes(q) || (b.author_username||'').toLowerCase().includes(q));
+      }
+      if (df || dt) {
+        const useFetched = this.sortBy.startsWith('fetched');
+        const getDate = b => {
+          const d = useFetched ? (b.fetched_at || b.created_at) : b.created_at;
+          return d ? d.slice(0, 10) : '';
+        };
+        if (df) list = list.filter(b => getDate(b) >= df);
+        if (dt) list = list.filter(b => getDate(b) <= dt);
+      }
+      const vOrder = { SIGNAL: 0, MIXED: 1, NOISE: 2, '': 3 };
+      const sorters = {
+        created_desc: (a, b) => (b.created_at || '').localeCompare(a.created_at || ''),
+        created_asc:  (a, b) => (a.created_at || '').localeCompare(b.created_at || ''),
+        fetched_desc: (a, b) => (b.fetched_at || b.created_at || '').localeCompare(a.fetched_at || a.created_at || ''),
+        fetched_asc:  (a, b) => (a.fetched_at || a.created_at || '').localeCompare(b.fetched_at || b.created_at || ''),
+        verdict:      (a, b) => (vOrder[a.verdict] ?? 3) - (vOrder[b.verdict] ?? 3),
+        author:       (a, b) => (a.author_username || '').localeCompare(b.author_username || ''),
+      };
+      const fn = sorters[this.sortBy];
+      if (fn) list = [...list].sort(fn);
+      return list;
+    },
+
+    get filteredPending() {
+      return this.filtered.filter(b => !b.has_analysis);
+    },
+
+    get backlogProjects() {
+      const PROJECTS = {
+        'AI Agent Company': ['ai', 'agent', 'llm', 'mcp', 'automation', 'rag', 'nlp', 'gpt', 'claude', 'openai', 'langchain'],
+        'Ledger': ['crypto', 'web3', 'defi', 'blockchain', 'wallet', 'nft', 'bitcoin', 'ethereum', 'ledger'],
+        'WhoGhost': ['instagram', 'social media', 'tracking', 'follower', 'unfollower', 'social'],
+        'Groove Candy': ['music', 'audio', 'distribution', 'streaming', 'spotify', 'sound'],
+        'General / Divers': []
+      };
+      const groups = {};
+      const analyzed = this.bookmarks.filter(b => b.has_analysis && b.actionable && b.actionable !== 'N/A');
+      for (const bm of analyzed) {
+        const actions = (bm.actionable || '').split(/[\n•\-]/).filter(a => a.trim().length > 15);
+        for (const action of actions) {
+          const txt = action.trim();
+          const low = (txt + ' ' + (bm.tags||[]).join(' ')).toLowerCase();
+          let matched = 'General / Divers';
+          for (const [proj, kws] of Object.entries(PROJECTS)) {
+            if (proj === 'General / Divers') continue;
+            if (kws.some(k => low.includes(k))) { matched = proj; break; }
+          }
+          const verdictScore = bm.verdict === 'SIGNAL' ? 3 : bm.verdict === 'MIXED' ? 2 : 1;
+          const lengthBonus = Math.min(txt.length / 100, 2);
+          const score = Math.min(10, Math.round((verdictScore * 2 + lengthBonus) * 10) / 10);
+          if (!groups[matched]) groups[matched] = [];
+          groups[matched].push({ text: txt, author: bm.author_username, verdict: bm.verdict, url: bm.url, score });
+        }
+      }
+      for (const k of Object.keys(groups)) {
+        groups[k].sort((a, b) => b.score - a.score);
+      }
+      return groups;
+    },
+
+    showToast(msg, type='ok') {
+      this.toast = msg;
+      this.toastType = type;
+      setTimeout(() => this.toast = '', 3500);
+    },
+
+    async connectX() {
+      const r = await fetch('/api/oauth/url');
+      const d = await r.json();
+      if (d.url) window.location.href = d.url;
+      else this.showToast(d.error || 'Erreur OAuth', 'error');
+    },
+
+    async disconnectX() {
+      await fetch('/api/oauth/disconnect', { method: 'POST' });
+      this.connected = false;
+      this.showToast('Déconnecté');
+    },
+
+    async importBookmarks() {
+      this.importing = true;
+      try {
+        const r = await fetch('/api/import-bookmarks', { method: 'POST' });
+        const d = await r.json();
+        if (d.error) { this.showToast(d.error, 'error'); return; }
+        this.showToast(`${d.imported} bookmarks importés`);
+        await this.loadData();
+      } catch(e) {
+        this.showToast('Erreur import', 'error');
+      } finally { this.importing = false; }
+    },
+
+    async analyzeBatch(list) {
+      this.analyzing = true;
+      const ids = list.map(b => b.tweet_id);
+      this.analyzeProgress = `0/${ids.length}`;
+      let done = 0;
+      for (const id of ids) {
+        try {
+          await fetch(`/api/reanalyze/${id}`, { method: 'POST' });
+          done++;
+          this.analyzeProgress = `${done}/${ids.length}`;
+        } catch(e) {}
+      }
+      this.showToast(`${done} analyses terminées`);
+      await this.loadData();
+      this.analyzing = false;
+    },
+
+    async reanalyze(tweetId) {
+      this.analyzing = true;
+      try {
+        await fetch(`/api/reanalyze/${tweetId}`, { method: 'POST' });
+        this.showToast('Re-analyse terminée');
+        await this.loadData();
+      } catch(e) {
+        this.showToast('Erreur', 'error');
+      } finally { this.analyzing = false; }
+    },
+
+    async reanalyzeBatch(ids) {
+      if (!confirm(`Re-analyser ${ids.length} éléments ?`)) return;
+      await this.analyzeBatch(ids.map(id => ({ tweet_id: id })));
+    },
+
+    async submitAdHoc() {
+      if (!this.addUrls.trim() && !this.addFiles) {
+        this.showToast('Ajoute au moins un lien ou un fichier', 'error');
+        return;
+      }
+      this.adHocLoading = true;
+      const fd = new FormData();
+      fd.append('urls', this.addUrls);
+      if (this.addFiles) {
+        for (const f of this.addFiles) fd.append('files', f);
+      }
+      try {
+        const r = await fetch('/api/analyze', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (d.error) {
+          this.showToast(d.error, 'error');
+        } else {
+          const n = d.results?.length || 0;
+          const errors = (d.results || []).filter(r => r.error).length;
+          this.showToast(errors ? `${n - errors}/${n} ok, ${errors} erreur(s)` : `${n} analyse(s) OK`);
+          this.addUrls = '';
+          this.addFiles = null;
+          await this.loadData();
+        }
+      } catch(e) {
+        this.showToast('Erreur : ' + e.message, 'error');
+      } finally { this.adHocLoading = false; }
+    },
+
+    async generateBrief() {
+      this.generatingBrief = true;
+      this.currentBrief = null;
+      const fd = new FormData();
+      fd.append('request_text', this.briefRequest);
+      fd.append('min_quality', this.briefQuality);
+      try {
+        const r = await fetch('/api/brief/generate', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (d.error) { this.showToast(d.error, 'error'); return; }
+        this.currentBrief = d;
+        this.showToast('Brief généré');
+        await this.loadBriefs();
+      } catch(e) {
+        this.showToast('Erreur', 'error');
+      } finally { this.generatingBrief = false; }
+    },
+
+    async loadBriefs() {
+      try {
+        const r = await fetch('/api/briefs');
+        this.briefs = (await r.json()).map(b => ({ ...b, _open: false }));
+      } catch(e) {}
+    },
+
+    async deleteBrief(id) {
+      await fetch(`/api/briefs/${id}`, { method: 'DELETE' });
+      this.briefs = this.briefs.filter(b => b.id !== id);
+      this.showToast('Brief supprimé');
+    },
+
+    copyToClipboard(text) {
+      navigator.clipboard.writeText(text || '');
+      this.showToast('Copié !');
+    },
+
+    openChat() {
+      if (!this.selectedBm) return;
+      if (!this.chatMessages.length || this._chatBmId !== this.selectedBm.tweet_id) {
+        this.chatMessages = [];
+        this._chatBmId = this.selectedBm.tweet_id;
+      }
+      this.chatOpen = true;
+      this.$nextTick(() => this.scrollChat());
+    },
+
+    scrollChat() {
+      const el = this.$refs.chatScroll;
+      if (el) el.scrollTop = el.scrollHeight;
+    },
+
+    renderChat(text) {
+      if (!text) return '';
+      return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-medium">$1</strong>')
+        .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 rounded bg-white/10 text-[#FF8A00] text-xs">$1</code>')
+        .replace(/\n/g, '<br>');
+    },
+
+    async sendChat() {
+      const msg = this.chatInput.trim();
+      if (!msg || this.chatLoading || !this.selectedBm) return;
+      this.chatMessages.push({ role: 'user', content: msg });
+      this.chatInput = '';
+      this.chatLoading = true;
+      this.$nextTick(() => this.scrollChat());
+      try {
+        const r = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: msg,
+            tweet_id: this.selectedBm.tweet_id,
+            history: this.chatMessages.filter(m => m.role !== 'typing').slice(-10),
+          }),
+        });
+        const d = await r.json();
+        if (d.error) {
+          this.chatMessages.push({ role: 'assistant', content: 'Erreur : ' + d.error });
+        } else {
+          this.chatMessages.push({ role: 'assistant', content: d.reply });
+        }
+      } catch (e) {
+        this.chatMessages.push({ role: 'assistant', content: 'Erreur de connexion.' });
+      } finally {
+        this.chatLoading = false;
+        this.$nextTick(() => this.scrollChat());
+      }
+    }
+  };
+}
+</script>
+</body>
+</html>
