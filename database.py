@@ -115,10 +115,19 @@ if _SB:
         if feature_ideas:
             row["feature_ideas"] = feature_ideas
         try:
-            _sb.table("analyses").insert(row).execute()
-        except Exception:
+            result = _sb.table("analyses").insert(row).execute()
+            if not result.data:
+                print(f"[DB] save_analysis: insert returned no data for {tweet_id}")
+        except Exception as e:
+            print(f"[DB] save_analysis 1st insert failed for {tweet_id}: {e}")
             row.pop("feature_ideas", None)
-            _sb.table("analyses").insert(row).execute()
+            try:
+                result = _sb.table("analyses").insert(row).execute()
+                if not result.data:
+                    print(f"[DB] save_analysis: 2nd insert returned no data for {tweet_id}")
+            except Exception as e2:
+                print(f"[DB] save_analysis FAILED for {tweet_id}: {e2}")
+                raise
         for tag in tags:
             existing = (
                 _sb.table("categories")

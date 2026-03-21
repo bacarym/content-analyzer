@@ -226,14 +226,18 @@ def _parse_metrics(raw):
 async def _analyze_and_save(bm: dict) -> dict:
     a = await analyze_single_async(content=bm["content"], author=bm.get("author_username", ""),
                                    api_key=ANTHROPIC_KEY, url=bm.get("url", ""), exa_key=EXA_KEY)
-    save_analysis(tweet_id=bm["tweet_id"], tags=a.get("tags", []),
-                  summary=a.get("summary", ""), claims_check=a.get("claims_check", ""),
-                  red_flags=a.get("red_flags", ""), actionable=a.get("actionable", ""),
-                  full_md=generate_markdown_report(bm, a), verdict=a.get("verdict", ""),
-                  translation=a.get("translation"), repo_analysis=a.get("repo_analysis"),
-                  conclusion=a.get("conclusion"), eli5=a.get("eli5"),
-                  web_research_summary=a.get("web_research_summary"),
-                  feature_ideas=a.get("feature_ideas"))
+    try:
+        save_analysis(tweet_id=bm["tweet_id"], tags=a.get("tags", []),
+                      summary=a.get("summary", ""), claims_check=a.get("claims_check", ""),
+                      red_flags=a.get("red_flags", ""), actionable=a.get("actionable", ""),
+                      full_md=generate_markdown_report(bm, a), verdict=a.get("verdict", ""),
+                      translation=a.get("translation"), repo_analysis=a.get("repo_analysis"),
+                      conclusion=a.get("conclusion"), eli5=a.get("eli5"),
+                      web_research_summary=a.get("web_research_summary"),
+                      feature_ideas=a.get("feature_ideas"))
+    except Exception as e:
+        print(f"[SAVE ERROR] tweet {bm['tweet_id']}: {e}")
+        raise
     return a
 
 
@@ -440,8 +444,12 @@ async def api_reanalyze(tweet_id: str):
     bm = get_bookmark(tweet_id)
     if not bm:
         return JSONResponse({"error": "Not found"}, status_code=404)
-    a = await _analyze_and_save(bm)
-    return {"verdict": a.get("verdict"), "summary": a.get("summary")}
+    try:
+        a = await _analyze_and_save(bm)
+        return {"verdict": a.get("verdict"), "summary": a.get("summary")}
+    except Exception as e:
+        print(f"[API] reanalyze failed for {tweet_id}: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/reanalyze-batch")

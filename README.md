@@ -17,15 +17,15 @@ Analyse, catégorise et explore tes bookmarks X avec Claude + recherche autonome
 
 ## Stack
 
-| Couche | Techno |
-|--------|--------|
-| Backend | FastAPI (Python 3.12) |
-| Frontend | Alpine.js + Tailwind CSS |
-| Database | Supabase (PostgreSQL) |
-| Analyse | Claude Sonnet (Anthropic API) + prompt caching |
-| Recherche | Exa API (search + crawl) |
-| Auth X | OAuth 2.0 PKCE |
-| Déploiement | Vercel (serverless) |
+| Couche      | Techno                                         |
+| ----------- | ---------------------------------------------- |
+| Backend     | FastAPI (Python 3.12)                          |
+| Frontend    | Alpine.js + Tailwind CSS                       |
+| Database    | Supabase (PostgreSQL)                          |
+| Analyse     | Claude Sonnet (Anthropic API) + prompt caching |
+| Recherche   | Exa API (search + crawl)                       |
+| Auth X      | OAuth 2.0 PKCE                                 |
+| Déploiement | Vercel (serverless)                            |
 
 ## Architecture
 
@@ -100,4 +100,4 @@ Exécuter `sql/oauth_tables.sql` dans le SQL Editor Supabase pour créer les tab
 
 ---
 
-*Built for Bacary · 2026*
+_Built for Bacary · 2026_
