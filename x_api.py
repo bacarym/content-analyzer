@@ -106,6 +106,23 @@ def fetch_tweet_by_id(tweet_id: str, bearer_token: str) -> Optional[dict]:
     return _format_tweet(tweet, author)
 
 
+def _extract_article_text(data: dict) -> str:
+    """Extract full text from X article (long-form tweet) via FxTwitter."""
+    article = data.get("article", {})
+    if not article:
+        return ""
+    blocks = article.get("content", {}).get("blocks", [])
+    if not blocks:
+        return article.get("preview_text", "")
+    title = article.get("title", "")
+    parts = [title] if title else []
+    for block in blocks:
+        text = block.get("text", "").strip()
+        if text:
+            parts.append(text)
+    return "\n\n".join(parts)
+
+
 def fetch_tweet_via_fxtwitter(tweet_id: str) -> Optional[dict]:
     url = f"https://api.fxtwitter.com/status/{tweet_id}"
     try:
@@ -113,11 +130,13 @@ def fetch_tweet_via_fxtwitter(tweet_id: str) -> Optional[dict]:
         if resp.status_code != 200:
             return None
         data = resp.json().get("tweet", {})
+        # Use article content if available, otherwise regular text
+        content = _extract_article_text(data) or data.get("text", "")
         return {
             "tweet_id": str(data.get("id", tweet_id)),
             "author_username": data.get("author", {}).get("screen_name", "unknown"),
             "author_name": data.get("author", {}).get("name", "Unknown"),
-            "content": data.get("text", ""),
+            "content": content,
             "created_at": data.get("created_at", ""),
             "url": data.get("url", f"https://x.com/i/status/{tweet_id}"),
             "metrics": {
