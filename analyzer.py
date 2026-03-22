@@ -265,21 +265,25 @@ def _format_exa_results(results: list[dict], source_label: str) -> str:
 
 
 def _parse_claude_json(raw: str) -> dict:
+    import re
     raw = raw.strip()
-    # Strip all markdown wrappers: ```json, ```, or any prefix/suffix
-    while raw.startswith("`"):
-        raw = raw.lstrip("`")
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-    while raw.endswith("`"):
-        raw = raw.rstrip("`").strip()
-    # Find the JSON object { ... } even if surrounded by text
+    # Strip markdown code blocks
+    raw = re.sub(r'^```(?:json)?\s*', '', raw)
+    raw = re.sub(r'\s*```$', '', raw)
+    # Find JSON object
     start = raw.find("{")
     end = raw.rfind("}")
     if start >= 0 and end > start:
         raw = raw[start:end + 1]
-    return json.loads(raw)
+    # Fix unescaped newlines inside JSON strings
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Try fixing common issues: unescaped newlines in strings
+        fixed = re.sub(r'(?<=": ")(.*?)(?="[,\n\r\s]*["}])',
+                       lambda m: m.group(0).replace('\n', '\\n'),
+                       raw, flags=re.DOTALL)
+        return json.loads(fixed)
 
 
 # ═══════════════════════════════════════
