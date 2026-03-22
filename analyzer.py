@@ -554,10 +554,12 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
         user_msg += "\n\nAucune recherche externe n'a abouti. Analyse sur la base du contenu seul."
 
     t2 = time.time()
+    # More tokens for longer content (articles need more analysis space)
+    tokens = 2500 if len(content) > 500 else 1500
     aclient = _get_anthropic_client(api_key)
     response = await aclient.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=1500,
+        max_tokens=tokens,
         system=ANALYSIS_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
     )
