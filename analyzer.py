@@ -512,7 +512,7 @@ Tu as ci-dessus un dossier complet. Base CHAQUE vérification sur ces données. 
 
     aclient = AsyncAnthropic(api_key=api_key)
     response = await aclient.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-4-5-20251001",
         max_tokens=1500,
         system=ANALYSIS_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
@@ -561,7 +561,7 @@ async def categorize_batch_async(tweets: list, api_key: str) -> list:
         for t in tweets
     ])
     response = await aclient.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-haiku-4-5-20251001",
         max_tokens=4000,
         system=CATEGORIZE_BATCH_PROMPT,
         messages=[{"role": "user", "content": tweets_text}],
