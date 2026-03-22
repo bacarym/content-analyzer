@@ -475,6 +475,8 @@ async def _research_topic_async(content: str, author: str,
 
 async def analyze_single_async(content: str, author: str, api_key: str,
                                 url: str = "", exa_key: str = "") -> dict:
+    import time
+    t0 = time.time()
     client = _get_httpx_client()
     raw_urls = list(set(_extract_urls(content) + ([url] if url else [])))
     gh_repos = _extract_github_repos(raw_urls)
@@ -493,6 +495,8 @@ async def analyze_single_async(content: str, author: str, api_key: str,
     exa_research, resolved_urls, *gh_results = await asyncio.gather(
         exa_task, resolve_task, *gh_tasks, return_exceptions=True,
     )
+    t1 = time.time()
+    print(f"[PERF] I/O phase: {t1-t0:.1f}s (exa+gh+url)")
 
     dossier_parts = []
     for i, (owner, repo) in enumerate(gh_repos[:1]):
@@ -524,6 +528,7 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
     else:
         user_msg += "\n\nAucune recherche externe n'a abouti. Analyse sur la base du contenu seul."
 
+    t2 = time.time()
     aclient = _get_anthropic_client(api_key)
     response = await aclient.messages.create(
         model="claude-haiku-4-5-20251001",
@@ -531,6 +536,8 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
         system=ANALYSIS_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
     )
+    t3 = time.time()
+    print(f"[PERF] Claude call: {t3-t2:.1f}s | Total: {t3-t0:.1f}s")
 
     raw = response.content[0].text.strip()
     try:
