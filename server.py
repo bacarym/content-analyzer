@@ -149,13 +149,14 @@ def health():
         token_status = "has_token" if tok.get("access_token") else "no_token"
     except Exception as e:
         token_status = f"error: {e}"
+    key_preview = ANTHROPIC_KEY[:15] + "..." if ANTHROPIC_KEY else "NOT SET"
     if _SB:
         try:
             from database import get_stats
             s = get_stats()
-            return {"status": "ok", "mode": "supabase_rest", "stats": s, "oauth": token_status}
+            return {"status": "ok", "mode": "supabase_rest", "stats": s, "oauth": token_status, "anthropic_key": key_preview}
         except Exception as e:
-            return {"status": "error", "mode": "supabase_rest", "error": str(e), "oauth": token_status}
+            return {"status": "error", "mode": "supabase_rest", "error": str(e), "oauth": token_status, "anthropic_key": key_preview}
     try:
         from database import get_connection
         conn = get_connection()
@@ -284,6 +285,24 @@ def debug_analyses(tweet_id: str = ""):
     elif not direct_ok:
         results["diagnosis"] = "BUG — no analyses found for this tweet_id (save_analysis() not persisting)"
     return results
+
+
+@app.get("/api/debug/anthropic")
+async def debug_anthropic():
+    """Test minimal Anthropic API call from Vercel."""
+    import traceback
+    try:
+        from anthropic import AsyncAnthropic
+        aclient = AsyncAnthropic(api_key=ANTHROPIC_KEY)
+        response = await aclient.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Say hi"}],
+        )
+        return {"status": "ok", "response": response.content[0].text}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "type": type(e).__name__,
+                "traceback": traceback.format_exc()}
 
 
 def _parse_tags(raw):
@@ -532,8 +551,10 @@ async def api_reanalyze(tweet_id: str):
         a = await _analyze_and_save(bm)
         return {"verdict": a.get("verdict"), "summary": a.get("summary")}
     except Exception as e:
-        print(f"[API] reanalyze failed for {tweet_id}: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[API] reanalyze failed for {tweet_id}: {e}\n{tb}")
+        return JSONResponse({"error": str(e), "traceback": tb}, status_code=500)
 
 
 @app.post("/api/reanalyze-batch")

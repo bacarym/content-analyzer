@@ -114,37 +114,40 @@ if _SB:
         }
         if feature_ideas:
             row["feature_ideas"] = feature_ideas
-        # Try upsert first (handles duplicates if UNIQUE constraint exists),
-        # fallback to insert if upsert fails (no UNIQUE on tweet_id)
         try:
-            result = _sb.table("analyses").upsert(row, on_conflict="tweet_id").execute()
-            print(f"[DB] save_analysis upsert OK for {tweet_id}: {len(result.data or [])} row(s)")
+            _sb.table("analyses").insert(row).execute()
         except Exception as e:
-            print(f"[DB] save_analysis upsert failed for {tweet_id}: {e}, trying insert...")
+            print(f"[DB] save_analysis 1st insert failed for {tweet_id}: {e}")
             row.pop("feature_ideas", None)
             try:
-                result = _sb.table("analyses").insert(row).execute()
-                print(f"[DB] save_analysis insert OK for {tweet_id}: {len(result.data or [])} row(s)")
+                _sb.table("analyses").insert(row).execute()
             except Exception as e2:
                 print(f"[DB] save_analysis FAILED for {tweet_id}: {e2}")
                 raise
         for tag in tags:
-            existing = (
-                _sb.table("categories")
-                .select("name, count")
-                .eq("name", tag)
-                .maybe_single()
-                .execute()
-            )
-            if existing.data:
+            try:
+                existing = (
+                    _sb.table("categories")
+                    .select("name, count")
+                    .eq("name", tag)
+                    .maybe_single()
+                    .execute()
+                )
+                has_existing = existing and existing.data
+            except Exception:
+                has_existing = False
+            if has_existing:
                 _sb.table("categories").update({
                     "count": (existing.data.get("count") or 0) + 1
                 }).eq("name", tag).execute()
             else:
-                _sb.table("categories").insert({
-                    "name": tag, "color": None, "count": 1,
-                    "created_at": datetime.utcnow().isoformat(),
-                }).execute()
+                try:
+                    _sb.table("categories").upsert({
+                        "name": tag, "color": None, "count": 1,
+                        "created_at": datetime.utcnow().isoformat(),
+                    }, on_conflict="name").execute()
+                except Exception:
+                    pass
 
     def get_all_bookmarks():
         resp = (
@@ -166,26 +169,32 @@ if _SB:
         return rows
 
     def get_bookmark(tweet_id):
-        resp = (
-            _sb.table("bookmarks")
-            .select("*")
-            .eq("tweet_id", tweet_id)
-            .maybe_single()
-            .execute()
-        )
-        return resp.data
+        try:
+            resp = (
+                _sb.table("bookmarks")
+                .select("*")
+                .eq("tweet_id", tweet_id)
+                .maybe_single()
+                .execute()
+            )
+            return resp.data if resp else None
+        except Exception:
+            return None
 
     def get_analysis(tweet_id):
-        resp = (
-            _sb.table("analyses")
-            .select("*")
-            .eq("tweet_id", tweet_id)
-            .order("analyzed_at", desc=True)
-            .limit(1)
-            .maybe_single()
-            .execute()
-        )
-        return resp.data
+        try:
+            resp = (
+                _sb.table("analyses")
+                .select("*")
+                .eq("tweet_id", tweet_id)
+                .order("analyzed_at", desc=True)
+                .limit(1)
+                .maybe_single()
+                .execute()
+            )
+            return resp.data if resp else None
+        except Exception:
+            return None
 
     def get_all_categories():
         resp = _sb.table("categories").select("*").order("count", desc=True).execute()
@@ -220,25 +229,31 @@ if _SB:
         }
 
     def bookmark_exists(tweet_id):
-        resp = (
-            _sb.table("bookmarks")
-            .select("tweet_id")
-            .eq("tweet_id", tweet_id)
-            .maybe_single()
-            .execute()
-        )
-        return resp.data is not None
+        try:
+            resp = (
+                _sb.table("bookmarks")
+                .select("tweet_id")
+                .eq("tweet_id", tweet_id)
+                .maybe_single()
+                .execute()
+            )
+            return resp is not None and resp.data is not None
+        except Exception:
+            return False
 
     def analysis_exists(tweet_id):
-        resp = (
-            _sb.table("analyses")
-            .select("tweet_id")
-            .eq("tweet_id", tweet_id)
-            .limit(1)
-            .maybe_single()
-            .execute()
-        )
-        return resp.data is not None
+        try:
+            resp = (
+                _sb.table("analyses")
+                .select("tweet_id")
+                .eq("tweet_id", tweet_id)
+                .limit(1)
+                .maybe_single()
+                .execute()
+            )
+            return resp is not None and resp.data is not None
+        except Exception:
+            return False
 
     def save_brief(request, brief_data):
         _sb.table("briefs").insert({
@@ -357,7 +372,7 @@ if _SB:
         try:
             key = f"_pkce_{state[:20]}"
             r = _sb.table("categories").select("color").eq("name", key).maybe_single().execute()
-            if not r.data or not r.data.get("color"):
+            if not r or not r.data or not r.data.get("color"):
                 print(f"[PKCE] no verifier found for state={state[:8]}...")
                 return None
             data = json.loads(r.data["color"])
@@ -379,7 +394,7 @@ if _SB:
                     .maybe_single()
                     .execute()
                 )
-                if r.data and r.data.get("access_token"):
+                if r and r.data and r.data.get("access_token"):
                     return {
                         "access_token": r.data.get("access_token") or "",
                         "refresh_token": r.data.get("refresh_token") or "",
@@ -389,7 +404,7 @@ if _SB:
         try:
             key = f"_oauth_{provider}"
             r = _sb.table("categories").select("color").eq("name", key).maybe_single().execute()
-            if r.data and r.data.get("color"):
+            if r and r.data and r.data.get("color"):
                 data = json.loads(r.data["color"])
                 return {"access_token": data.get("a", ""), "refresh_token": data.get("r", "")}
         except Exception as e:
