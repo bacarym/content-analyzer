@@ -2038,7 +2038,12 @@
                 ),
             };
             const fn = sorters[this.sortBy];
-            if (fn) list = [...list].sort(fn);
+            if (fn) {
+              // Unanalyzed tweets always first, then sort the rest
+              const pending = list.filter((b) => !b.has_analysis);
+              const analyzed = list.filter((b) => b.has_analysis);
+              list = [...pending, ...analyzed.sort(fn)];
+            }
             return list;
           },
 
