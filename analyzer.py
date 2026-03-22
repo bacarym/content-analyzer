@@ -568,10 +568,10 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
     try:
         return _parse_claude_json(raw)
     except (json.JSONDecodeError, Exception) as e:
-        print(f"[PARSE] Failed: {e} | Raw first 100: {repr(raw[:100])}")
+        print(f"[PARSE] Failed: {e} | Raw first 200: {repr(raw[:200])}")
         return {
             "tags": ["Uncategorized"], "summary": raw[:500],
-            "claims_check": "Erreur de parsing", "red_flags": "N/A",
+            "claims_check": f"Parse error: {e}", "red_flags": "N/A",
             "actionable": "N/A", "verdict": "MIXED", "_raw": raw,
         }
 
