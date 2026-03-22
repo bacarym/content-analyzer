@@ -287,6 +287,7 @@ def debug_analyses(tweet_id: str = ""):
     return results
 
 
+
 @app.get("/api/debug/anthropic")
 async def debug_anthropic():
     """Test minimal Anthropic API call from Vercel."""
