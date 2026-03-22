@@ -51,7 +51,7 @@ Il cherche des opportunités actionnables, des vérifications factuelles, et une
 
 <rules>
 - INTERDIT d'écrire : "à vérifier", "Bacary devrait checker", "il faudrait investiguer", "sans accès au repo", "impossible de confirmer"
-- TU AS les données. Si un repo GitHub est dans le dossier, tu as ses stats, son README, son activité. UTILISE-LES.
+- TU AS les données. Si un repo GitHub est dans le dossier, tu as ses stats, README, issues récentes, commits récents, ET la structure du code. UTILISE TOUT. Analyse les issues pour voir les vrais problèmes. Analyse les commits pour voir si le développement est actif. Analyse la structure pour voir si c'est du vrai code ou un projet vide.
 - Si les sources se contredisent, rapporte les deux positions factuellement
 - Cite tes sources : "Selon l'article de [titre] sur [site]...", "Les utilisateurs Reddit mentionnent que..."
 - Chaque affirmation dans claims_check est étayée par une donnée concrète du dossier
@@ -70,7 +70,7 @@ JSON valide uniquement. Aucun markdown, aucun backtick, aucun texte avant ou apr
   "red_flags": "Red flags CONSTATÉS avec preuves tirées du dossier. 'Aucun' si RAS.",
   "actionable": "Actions CONCRÈTES pour les projets de Bacary. Pas 'explorer' mais 'Intégrer X dans Y parce que Z'. Si rien de pertinent, le dire.",
   "feature_ideas": "2-5 idées CONCRÈTES de features pour les projets existants de Bacary (AI Agent Company, Ledger, WhoGhost, Groove Candy) OU idées de nouveaux projets/produits inspirés par ce contenu. Format : '• [Projet] Feature/Idée : description en 1-2 phrases avec le WHY'. null si aucune idée pertinente.",
-  "repo_analysis": "Analyse technique complète si repo GitHub dans le dossier (stats réelles, stack, qualité, activité). Sinon null.",
+  "repo_analysis": "Analyse technique APPROFONDIE si repo GitHub dans le dossier : stats réelles, stack, qualité du code (structure des fichiers), activité des commits (fréquence, auteurs), issues ouvertes (vrais bugs vs feature requests), maturité du projet. REGARDE les issues pour identifier les vrais problèmes rapportés par les utilisateurs. Sinon null.",
   "web_research_summary": "SYNTHÈSE DES SOURCES EXTERNES : Que disent les articles trouvés ? Quel consensus sur Reddit/HN ? Y a-t-il des critiques récurrentes ? Des alternatives mentionnées ?",
   "conclusion": "ANALYSE GLOBALE du sujet : état de l'art, positionnement vs alternatives, nouveauté réelle, opportunité de monétisation. Appuyée sur les sources du dossier.",
   "eli5": "1-2 phrases pour un non-technique. Zéro jargon.",
@@ -279,28 +279,58 @@ async def _resolve_shortened_urls_async(urls: list[str],
 async def _fetch_github_context_async(owner: str, repo: str,
                                        client: httpx.AsyncClient) -> str:
     gh = {"Accept": "application/vnd.github.v3+json"}
+    base = f"https://api.github.com/repos/{owner}/{repo}"
     parts = []
     try:
-        meta_resp, readme_resp = await asyncio.gather(
-            client.get(f"https://api.github.com/repos/{owner}/{repo}",
-                       headers=gh, timeout=5),
-            client.get(f"https://api.github.com/repos/{owner}/{repo}/readme",
-                       headers=gh, timeout=5),
+        # Fetch meta, readme, issues, commits, tree ALL in parallel
+        meta_resp, readme_resp, issues_resp, commits_resp, tree_resp = await asyncio.gather(
+            client.get(base, headers=gh, timeout=4),
+            client.get(f"{base}/readme", headers=gh, timeout=4),
+            client.get(f"{base}/issues?per_page=5&state=all&sort=updated", headers=gh, timeout=4),
+            client.get(f"{base}/commits?per_page=5", headers=gh, timeout=4),
+            client.get(f"{base}/contents", headers=gh, timeout=4),
+            return_exceptions=True,
         )
-        if meta_resp.status_code == 200:
+        if not isinstance(meta_resp, Exception) and meta_resp.status_code == 200:
             d = meta_resp.json()
             parts.append(f"Repo: {d.get('full_name')} — {d.get('description', 'N/A')}")
             parts.append(f"Stars: {d.get('stargazers_count', 0)} | Forks: {d.get('forks_count', 0)} | Open issues: {d.get('open_issues_count', 0)}")
             parts.append(f"Language: {d.get('language', 'N/A')} | License: {(d.get('license') or {}).get('spdx_id', 'N/A')}")
             parts.append(f"Created: {d.get('created_at', '?')[:10]} | Last push: {d.get('pushed_at', '?')[:10]}")
             parts.append(f"Archived: {d.get('archived', False)} | Topics: {', '.join(d.get('topics', []))}")
-            parts.append(f"Default branch: {d.get('default_branch', 'main')} | Size: {d.get('size', 0)} KB")
-            parts.append(f"Watchers: {d.get('subscribers_count', 0)} | Network: {d.get('network_count', 0)}")
-        if readme_resp.status_code == 200:
+            parts.append(f"Size: {d.get('size', 0)} KB | Watchers: {d.get('subscribers_count', 0)}")
+        if not isinstance(readme_resp, Exception) and readme_resp.status_code == 200:
             content = base64.b64decode(
                 readme_resp.json().get("content", "")
             ).decode("utf-8", errors="replace")
-            parts.append(f"\n--- README (extrait) ---\n{content[:4000]}")
+            parts.append(f"\n--- README (extrait) ---\n{content[:3000]}")
+        # Recent issues — shows real community activity and problems
+        if not isinstance(issues_resp, Exception) and issues_resp.status_code == 200:
+            issues = issues_resp.json()[:5]
+            if issues:
+                issue_lines = []
+                for iss in issues:
+                    state = "🟢" if iss.get("state") == "open" else "🔴"
+                    comments = iss.get("comments", 0)
+                    issue_lines.append(f"  {state} #{iss.get('number')} [{comments} comments] {iss.get('title','')[:80]}")
+                parts.append(f"\n--- ISSUES RÉCENTES ---\n" + "\n".join(issue_lines))
+        # Recent commits — shows development activity
+        if not isinstance(commits_resp, Exception) and commits_resp.status_code == 200:
+            commits = commits_resp.json()[:5]
+            if commits:
+                commit_lines = []
+                for c in commits:
+                    date = c.get("commit", {}).get("author", {}).get("date", "")[:10]
+                    msg = c.get("commit", {}).get("message", "").split("\n")[0][:80]
+                    author = c.get("commit", {}).get("author", {}).get("name", "")
+                    commit_lines.append(f"  {date} [{author}] {msg}")
+                parts.append(f"\n--- COMMITS RÉCENTS ---\n" + "\n".join(commit_lines))
+        # File tree — shows project structure and real code
+        if not isinstance(tree_resp, Exception) and tree_resp.status_code == 200:
+            files = tree_resp.json()
+            if isinstance(files, list):
+                file_names = [f.get("name", "") for f in files[:20]]
+                parts.append(f"\n--- STRUCTURE PROJET ---\n{', '.join(file_names)}")
     except Exception:
         pass
     return "\n".join(parts) if parts else ""
@@ -312,8 +342,8 @@ async def _exa_search_async(query: str, exa_key: str, client: httpx.AsyncClient,
     """light=True returns only summaries (faster for secondary sources)."""
     contents = {"summary": {"query": query}}
     if not light:
-        contents["text"] = {"maxCharacters": 1500}
-        contents["highlights"] = {"numSentences": 3, "query": query}
+        contents["text"] = {"maxCharacters": 1200}
+        contents["highlights"] = {"numSentences": 2, "query": query}
 
     body = {"query": query, "numResults": num_results,
             "type": "neural", "contents": contents}
@@ -325,7 +355,7 @@ async def _exa_search_async(query: str, exa_key: str, client: httpx.AsyncClient,
         r = await client.post(f"{EXA_API_URL}/search",
                               headers={"x-api-key": exa_key,
                                        "Content-Type": "application/json"},
-                              json=body, timeout=6)
+                              json=body, timeout=4)
         if r.status_code == 200:
             return r.json().get("results", [])
     except Exception:
@@ -342,7 +372,7 @@ async def _exa_crawl_async(url: str, exa_key: str,
                                        "Content-Type": "application/json"},
                               json={"urls": [url],
                                     "text": {"maxCharacters": max_chars}},
-                              timeout=6)
+                              timeout=4)
         if r.status_code == 200:
             results = r.json().get("results", [])
             if results:
@@ -385,99 +415,39 @@ async def _research_topic_async(content: str, author: str,
     project_names = _extract_project_names(
         content, urls, github_repos or [])
 
-    # ── Core searches (generic topic) ──
+    # ── 4 core searches only (all parallel, ~4s max) ──
     articles_fut = _exa_search_async(query, exa_key, client, num_results=3)
     reddit_fut = _exa_search_async(query, exa_key, client, num_results=3,
                                     include_domains=["reddit.com"], light=True)
     hn_fut = _exa_search_async(query, exa_key, client, num_results=3,
                                 include_domains=["news.ycombinator.com"], light=True)
-    tweets_fut = _exa_search_async(query, exa_key, client, num_results=2,
-                                    category="tweet", light=True)
-
-    # ── Targeted searches (repo/project-specific) ──
-    targeted_futs = []
-    targeted_labels = []
-
-    for name in project_names[:2]:
-        targeted_futs.append(_exa_search_async(
-            f'"{name}" review criticism problems limitations issues',
-            exa_key, client, num_results=3, light=True))
-        targeted_labels.append(f"Critique: {name}")
-
-        targeted_futs.append(_exa_search_async(
-            f'"{name}" opinion',
-            exa_key, client, num_results=3,
-            include_domains=["reddit.com", "news.ycombinator.com"], light=True))
-        targeted_labels.append(f"Sentiment: {name}")
-
-    # ── Author credibility search ──
-    if author and author not in ("unknown", "upload"):
-        targeted_futs.append(_exa_search_async(
-            f"@{author} credibility reputation reliable",
-            exa_key, client, num_results=2, category="tweet", light=True))
-        targeted_labels.append(f"Crédibilité: @{author}")
-
-    # ── Counter-argument search ──
     counter_query = _build_search_query(content, "")
-    targeted_futs.append(_exa_search_async(
-        f"{counter_query} criticism skepticism debunk overrated hype",
-        exa_key, client, num_results=3, light=True))
-    targeted_labels.append("Contre-arguments")
+    counter_fut = _exa_search_async(
+        f"{counter_query} criticism skepticism problems limitations",
+        exa_key, client, num_results=3, light=True)
 
-    # ── URL crawls ──
-    skip_domains = ("github.com", "x.com", "twitter.com", "t.co")
-    crawl_urls = [u for u in urls[:3] if not any(d in u for d in skip_domains)]
-    crawl_futs = [_exa_crawl_async(u, exa_key, client) for u in crawl_urls]
-
-    # ── Run ALL in parallel ──
-    n_core = 4
-    n_targeted = len(targeted_futs)
-    all_results = await asyncio.gather(
-        articles_fut, reddit_fut, hn_fut, tweets_fut,
-        *targeted_futs, *crawl_futs,
+    articles, reddit, hn, counter = await asyncio.gather(
+        articles_fut, reddit_fut, hn_fut, counter_fut,
         return_exceptions=True,
     )
 
-    def _safe(idx):
-        r = all_results[idx]
+    def _safe(r):
         return r if not isinstance(r, Exception) else []
-
-    articles = _safe(0)
-    reddit = _safe(1)
-    hn = _safe(2)
-    tweets = _safe(3)
-    targeted_results = [_safe(n_core + i) for i in range(n_targeted)]
-    crawled = all_results[n_core + n_targeted:]
 
     # ── Assemble dossier ──
     sections = []
-    fmt = _format_exa_results(articles, "Article")
+    fmt = _format_exa_results(_safe(articles), "Article")
     if fmt:
-        sections.append(f"=== ARTICLES & BLOGS TROUVÉS (recherche sémantique Exa) ===\n{fmt}")
-    fmt = _format_exa_results(reddit, "Reddit")
+        sections.append(f"=== ARTICLES & BLOGS ===\n{fmt}")
+    fmt = _format_exa_results(_safe(reddit), "Reddit")
     if fmt:
-        sections.append(f"=== DISCUSSIONS REDDIT ===\n{fmt}")
-    fmt = _format_exa_results(hn, "HackerNews")
+        sections.append(f"=== REDDIT ===\n{fmt}")
+    fmt = _format_exa_results(_safe(hn), "HackerNews")
     if fmt:
-        sections.append(f"=== DISCUSSIONS HACKERNEWS ===\n{fmt}")
-    fmt = _format_exa_results(tweets, "Tweet")
+        sections.append(f"=== HACKERNEWS ===\n{fmt}")
+    fmt = _format_exa_results(_safe(counter), "Critique")
     if fmt:
-        sections.append(f"=== TWEETS SIMILAIRES ===\n{fmt}")
-
-    # ── Targeted results section ──
-    targeted_parts = []
-    for i, label in enumerate(targeted_labels):
-        fmt = _format_exa_results(targeted_results[i], label)
-        if fmt:
-            targeted_parts.append(fmt)
-    if targeted_parts:
-        sections.append(
-            f"=== RECHERCHE CIBLÉE (critiques, sentiment, crédibilité) ===\n"
-            + "\n\n".join(targeted_parts))
-
-    for i, text in enumerate(crawled):
-        if isinstance(text, str) and len(text) > 100:
-            sections.append(f"=== PAGE CRAWLÉE: {crawl_urls[i]} ===\n{text[:2500]}")
+        sections.append(f"=== CRITIQUES & CONTRE-ARGUMENTS ===\n{fmt}")
 
     return "\n\n".join(sections)
 
@@ -543,7 +513,7 @@ Tu as ci-dessus un dossier complet. Base CHAQUE vérification sur ces données. 
     aclient = AsyncAnthropic(api_key=api_key)
     response = await aclient.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=2048,
+        max_tokens=1500,
         system=ANALYSIS_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
     )
