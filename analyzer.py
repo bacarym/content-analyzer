@@ -265,11 +265,19 @@ def _format_exa_results(results: list[dict], source_label: str) -> str:
 
 
 def _parse_claude_json(raw: str) -> dict:
+    # Strip markdown code blocks (```json ... ``` or ``` ... ```)
+    raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
     if raw.endswith("```"):
         raw = raw[:-3]
-    return json.loads(raw.strip())
+    raw = raw.strip()
+    # Find JSON object boundaries if there's extra text
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start >= 0 and end > start:
+        raw = raw[start:end + 1]
+    return json.loads(raw)
 
 
 # ═══════════════════════════════════════
