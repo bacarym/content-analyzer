@@ -114,17 +114,17 @@ if _SB:
         }
         if feature_ideas:
             row["feature_ideas"] = feature_ideas
+        # Try upsert first (handles duplicates if UNIQUE constraint exists),
+        # fallback to insert if upsert fails (no UNIQUE on tweet_id)
         try:
-            result = _sb.table("analyses").insert(row).execute()
-            if not result.data:
-                print(f"[DB] save_analysis: insert returned no data for {tweet_id}")
+            result = _sb.table("analyses").upsert(row, on_conflict="tweet_id").execute()
+            print(f"[DB] save_analysis upsert OK for {tweet_id}: {len(result.data or [])} row(s)")
         except Exception as e:
-            print(f"[DB] save_analysis 1st insert failed for {tweet_id}: {e}")
+            print(f"[DB] save_analysis upsert failed for {tweet_id}: {e}, trying insert...")
             row.pop("feature_ideas", None)
             try:
                 result = _sb.table("analyses").insert(row).execute()
-                if not result.data:
-                    print(f"[DB] save_analysis: 2nd insert returned no data for {tweet_id}")
+                print(f"[DB] save_analysis insert OK for {tweet_id}: {len(result.data or [])} row(s)")
             except Exception as e2:
                 print(f"[DB] save_analysis FAILED for {tweet_id}: {e2}")
                 raise

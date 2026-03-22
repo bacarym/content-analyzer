@@ -202,6 +202,90 @@ def debug_oauth():
     return results
 
 
+@app.get("/api/debug/analyses")
+def debug_analyses(tweet_id: str = ""):
+    """Diagnostic: teste le cycle write/read analyses pour un tweet_id."""
+    from database import _SB, _sb, _analysis_fields
+    results = {}
+
+    if not _SB:
+        return {"error": "Not in Supabase mode"}
+
+    # 1. Liste quelques tweet_ids existants si aucun fourni
+    if not tweet_id:
+        try:
+            bm_resp = _sb.table("bookmarks").select("tweet_id").limit(5).execute()
+            results["hint"] = "Pass ?tweet_id=XXX to test a specific bookmark"
+            results["sample_tweet_ids"] = [b["tweet_id"] for b in (bm_resp.data or [])]
+        except Exception as e:
+            results["bookmarks_error"] = str(e)
+        return results
+
+    # 2. Lecture directe table analyses
+    try:
+        direct = _sb.table("analyses").select("*").eq("tweet_id", tweet_id).execute()
+        results["direct_read_count"] = len(direct.data or [])
+        results["direct_read"] = direct.data[:2] if direct.data else None
+    except Exception as e:
+        results["direct_read_error"] = str(e)
+
+    # 3. Lecture via embedded PostgREST (la requête utilisée par get_bookmarks_grouped)
+    try:
+        fields = _analysis_fields()
+        embedded = (
+            _sb.table("bookmarks")
+            .select(f"tweet_id, analyses({fields})")
+            .eq("tweet_id", tweet_id)
+            .execute()
+        )
+        bm_data = embedded.data[0] if embedded.data else {}
+        results["embedded_analyses"] = bm_data.get("analyses", [])
+        results["embedded_count"] = len(bm_data.get("analyses", []))
+    except Exception as e:
+        results["embedded_read_error"] = str(e)
+
+    # 4. Test write → read (insert test puis delete)
+    try:
+        test_row = {
+            "tweet_id": tweet_id,
+            "tags": "[]",
+            "summary": "__debug_test__",
+            "claims_check": "",
+            "red_flags": "",
+            "actionable": "",
+            "full_analysis_md": "# Debug test",
+            "analyzed_at": "2099-01-01T00:00:00",
+            "embedding_vector": "[]",
+            "verdict": "MIXED",
+        }
+        insert_resp = _sb.table("analyses").insert(test_row).execute()
+        results["test_insert"] = "ok" if insert_resp.data else "empty_response"
+        results["test_insert_data"] = insert_resp.data[:1] if insert_resp.data else None
+
+        # Read back
+        readback = _sb.table("analyses").select("id, tweet_id, summary").eq("tweet_id", tweet_id).eq("summary", "__debug_test__").execute()
+        results["test_readback"] = readback.data
+
+        # Cleanup
+        if readback.data:
+            for row in readback.data:
+                _sb.table("analyses").delete().eq("id", row["id"]).execute()
+            results["test_cleanup"] = "ok"
+    except Exception as e:
+        results["test_write_error"] = str(e)
+
+    # 5. Diagnostic
+    direct_ok = results.get("direct_read_count", 0) > 0
+    embedded_ok = results.get("embedded_count", 0) > 0
+    if direct_ok and embedded_ok:
+        results["diagnosis"] = "OK — analyses exist and PostgREST join works"
+    elif direct_ok and not embedded_ok:
+        results["diagnosis"] = "BUG — analyses exist in DB but PostgREST embedded query fails (FK missing or RLS issue)"
+    elif not direct_ok:
+        results["diagnosis"] = "BUG — no analyses found for this tweet_id (save_analysis() not persisting)"
+    return results
+
+
 def _parse_tags(raw):
     if isinstance(raw, list):
         return raw
