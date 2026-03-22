@@ -548,6 +548,12 @@ async def api_reanalyze(tweet_id: str):
     bm = get_bookmark(tweet_id)
     if not bm:
         return JSONResponse({"error": "Not found"}, status_code=404)
+    # Re-fetch content if stored content is too short (e.g. just a URL)
+    if len(bm.get("content", "")) < 50:
+        fresh = fetch_tweet_via_fxtwitter(tweet_id)
+        if fresh and len(fresh.get("content", "")) > len(bm.get("content", "")):
+            bm["content"] = fresh["content"]
+            upsert_bookmark(**{k: v for k, v in fresh.items() if k != "error"})
     try:
         a = await _analyze_and_save(bm)
         return {"verdict": a.get("verdict"), "summary": a.get("summary")}
