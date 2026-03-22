@@ -14,6 +14,23 @@ from anthropic import AsyncAnthropic
 
 EXA_API_URL = "https://api.exa.ai"
 
+# Reusable HTTP clients — avoids TCP handshake overhead on each call
+_httpx_client = None
+_anthropic_clients = {}
+
+
+def _get_httpx_client():
+    global _httpx_client
+    if _httpx_client is None or _httpx_client.is_closed:
+        _httpx_client = httpx.AsyncClient(timeout=5)
+    return _httpx_client
+
+
+def _get_anthropic_client(api_key: str):
+    if api_key not in _anthropic_clients:
+        _anthropic_clients[api_key] = AsyncAnthropic(api_key=api_key)
+    return _anthropic_clients[api_key]
+
 
 # ═══════════════════════════════════════
 # SYSTEM PROMPT — Anthropic best practices: XML structure, few-shot, self-verification
@@ -284,11 +301,11 @@ async def _fetch_github_context_async(owner: str, repo: str,
     try:
         # Fetch meta, readme, issues, commits, tree ALL in parallel
         meta_resp, readme_resp, issues_resp, commits_resp, tree_resp = await asyncio.gather(
-            client.get(base, headers=gh, timeout=4),
-            client.get(f"{base}/readme", headers=gh, timeout=4),
-            client.get(f"{base}/issues?per_page=5&state=all&sort=updated", headers=gh, timeout=4),
-            client.get(f"{base}/commits?per_page=5", headers=gh, timeout=4),
-            client.get(f"{base}/contents", headers=gh, timeout=4),
+            client.get(base, headers=gh, timeout=3),
+            client.get(f"{base}/readme", headers=gh, timeout=3),
+            client.get(f"{base}/issues?per_page=5&state=all&sort=updated", headers=gh, timeout=3),
+            client.get(f"{base}/commits?per_page=3", headers=gh, timeout=3),
+            client.get(f"{base}/contents", headers=gh, timeout=3),
             return_exceptions=True,
         )
         if not isinstance(meta_resp, Exception) and meta_resp.status_code == 200:
@@ -458,35 +475,34 @@ async def _research_topic_async(content: str, author: str,
 
 async def analyze_single_async(content: str, author: str, api_key: str,
                                 url: str = "", exa_key: str = "") -> dict:
-    async with httpx.AsyncClient() as client:
-        raw_urls = list(set(_extract_urls(content) + ([url] if url else [])))
-        gh_repos = _extract_github_repos(raw_urls)
+    client = _get_httpx_client()
+    raw_urls = list(set(_extract_urls(content) + ([url] if url else [])))
+    gh_repos = _extract_github_repos(raw_urls)
 
-        # Launch ALL I/O in parallel: URL resolve + GitHub + Exa research
-        # Exa core searches don't need resolved URLs — only crawls do
-        resolve_task = _resolve_shortened_urls_async(raw_urls, client)
-        gh_tasks = [_fetch_github_context_async(o, r, client)
-                    for o, r in gh_repos[:2]]
-        exa_task = (
-            _research_topic_async(content, author, raw_urls, exa_key, client,
-                                  github_repos=gh_repos)
-            if exa_key else asyncio.sleep(0)
-        )
+    # Launch ALL I/O in parallel: URL resolve + GitHub + Exa research
+    resolve_task = _resolve_shortened_urls_async(raw_urls, client)
+    gh_tasks = [_fetch_github_context_async(o, r, client)
+                for o, r in gh_repos[:1]]  # 1 repo max for speed
+    exa_task = (
+        _research_topic_async(content, author, raw_urls, exa_key, client,
+                              github_repos=gh_repos)
+        if exa_key else asyncio.sleep(0)
+    )
 
-        # Everything runs at the same time
-        exa_research, resolved_urls, *gh_results = await asyncio.gather(
-            exa_task, resolve_task, *gh_tasks, return_exceptions=True,
-        )
+    # Everything runs at the same time
+    exa_research, resolved_urls, *gh_results = await asyncio.gather(
+        exa_task, resolve_task, *gh_tasks, return_exceptions=True,
+    )
 
-        dossier_parts = []
-        for i, (owner, repo) in enumerate(gh_repos[:2]):
-            ctx = gh_results[i] if not isinstance(gh_results[i], Exception) else ""
-            if ctx:
-                dossier_parts.append(
-                    f"=== REPO GITHUB VÉRIFIÉ: {owner}/{repo} ===\n{ctx}")
+    dossier_parts = []
+    for i, (owner, repo) in enumerate(gh_repos[:1]):
+        ctx = gh_results[i] if not isinstance(gh_results[i], Exception) else ""
+        if ctx:
+            dossier_parts.append(
+                f"=== REPO GITHUB VÉRIFIÉ: {owner}/{repo} ===\n{ctx}")
 
-        if exa_key and isinstance(exa_research, str) and exa_research:
-            dossier_parts.append(exa_research)
+    if exa_key and isinstance(exa_research, str) and exa_research:
+        dossier_parts.append(exa_research)
 
     dossier = "\n\n".join(dossier_parts)
 
@@ -501,16 +517,14 @@ URL source: {url}
         user_msg += f"""
 
 <research_dossier>
-Dossier de recherche compilé automatiquement. TOUTES ces données sont réelles et vérifiées.
-
 {dossier}
 </research_dossier>
 
-Tu as ci-dessus un dossier complet. Base CHAQUE vérification sur ces données. Cite les sources."""
+Base CHAQUE vérification sur ces données. Cite les sources."""
     else:
-        user_msg += "\n\nAucune recherche externe n'a abouti. Analyse sur la base du contenu seul et indique clairement les limites."
+        user_msg += "\n\nAucune recherche externe n'a abouti. Analyse sur la base du contenu seul."
 
-    aclient = AsyncAnthropic(api_key=api_key)
+    aclient = _get_anthropic_client(api_key)
     response = await aclient.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=1500,
