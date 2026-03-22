@@ -265,14 +265,16 @@ def _format_exa_results(results: list[dict], source_label: str) -> str:
 
 
 def _parse_claude_json(raw: str) -> dict:
-    # Strip markdown code blocks (```json ... ``` or ``` ... ```)
     raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-    if raw.endswith("```"):
-        raw = raw[:-3]
-    raw = raw.strip()
-    # Find JSON object boundaries if there's extra text
+    # Strip all markdown wrappers: ```json, ```, or any prefix/suffix
+    while raw.startswith("`"):
+        raw = raw.lstrip("`")
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    while raw.endswith("`"):
+        raw = raw.rstrip("`").strip()
+    # Find the JSON object { ... } even if surrounded by text
     start = raw.find("{")
     end = raw.rfind("}")
     if start >= 0 and end > start:
@@ -561,7 +563,8 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
     raw = response.content[0].text.strip()
     try:
         return _parse_claude_json(raw)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"[PARSE] Failed: {e} | Raw first 100: {repr(raw[:100])}")
         return {
             "tags": ["Uncategorized"], "summary": raw[:500],
             "claims_check": "Erreur de parsing", "red_flags": "N/A",
