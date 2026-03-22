@@ -372,7 +372,7 @@ async def _exa_search_async(query: str, exa_key: str, client: httpx.AsyncClient,
         r = await client.post(f"{EXA_API_URL}/search",
                               headers={"x-api-key": exa_key,
                                        "Content-Type": "application/json"},
-                              json=body, timeout=4)
+                              json=body, timeout=3)
         if r.status_code == 200:
             return r.json().get("results", [])
     except Exception:
@@ -389,7 +389,7 @@ async def _exa_crawl_async(url: str, exa_key: str,
                                        "Content-Type": "application/json"},
                               json={"urls": [url],
                                     "text": {"maxCharacters": max_chars}},
-                              timeout=4)
+                              timeout=3)
         if r.status_code == 200:
             results = r.json().get("results", [])
             if results:
@@ -480,35 +480,46 @@ async def analyze_single_async(content: str, author: str, api_key: str,
     client = _get_httpx_client()
     raw_urls = list(set(_extract_urls(content) + ([url] if url else [])))
     gh_repos = _extract_github_repos(raw_urls)
-
-    # Launch ALL I/O in parallel: URL resolve + GitHub + Exa research
-    resolve_task = _resolve_shortened_urls_async(raw_urls, client)
-    gh_tasks = [_fetch_github_context_async(o, r, client)
-                for o, r in gh_repos[:1]]  # 1 repo max for speed
-    exa_task = (
-        _research_topic_async(content, author, raw_urls, exa_key, client,
-                              github_repos=gh_repos)
-        if exa_key else asyncio.sleep(0)
+    has_interesting_urls = any(
+        u for u in raw_urls
+        if "github.com" in u or not any(s in u for s in ("x.com", "twitter.com", "t.co"))
     )
 
-    # Everything runs at the same time
-    exa_research, resolved_urls, *gh_results = await asyncio.gather(
-        exa_task, resolve_task, *gh_tasks, return_exceptions=True,
-    )
-    t1 = time.time()
-    print(f"[PERF] I/O phase: {t1-t0:.1f}s (exa+gh+url)")
+    dossier = ""
+    # Only do research if there are interesting URLs or repos
+    if exa_key and (gh_repos or has_interesting_urls):
+        resolve_task = _resolve_shortened_urls_async(raw_urls, client)
+        gh_tasks = [_fetch_github_context_async(o, r, client)
+                    for o, r in gh_repos[:1]]
+        exa_task = _research_topic_async(content, author, raw_urls, exa_key, client,
+                                          github_repos=gh_repos)
 
-    dossier_parts = []
-    for i, (owner, repo) in enumerate(gh_repos[:1]):
-        ctx = gh_results[i] if not isinstance(gh_results[i], Exception) else ""
-        if ctx:
-            dossier_parts.append(
-                f"=== REPO GITHUB VÉRIFIÉ: {owner}/{repo} ===\n{ctx}")
+        exa_research, resolved_urls, *gh_results = await asyncio.gather(
+            exa_task, resolve_task, *gh_tasks, return_exceptions=True,
+        )
+        t1 = time.time()
+        print(f"[PERF] I/O phase: {t1-t0:.1f}s")
 
-    if exa_key and isinstance(exa_research, str) and exa_research:
-        dossier_parts.append(exa_research)
+        dossier_parts = []
+        for i, (owner, repo) in enumerate(gh_repos[:1]):
+            ctx = gh_results[i] if not isinstance(gh_results[i], Exception) else ""
+            if ctx:
+                dossier_parts.append(
+                    f"=== REPO GITHUB VÉRIFIÉ: {owner}/{repo} ===\n{ctx}")
 
-    dossier = "\n\n".join(dossier_parts)
+        if isinstance(exa_research, str) and exa_research:
+            dossier_parts.append(exa_research)
+
+        dossier = "\n\n".join(dossier_parts)
+    elif exa_key:
+        # Light research — just articles, no GitHub
+        exa_research = await _research_topic_async(
+            content, author, [], exa_key, client, github_repos=[])
+        t1 = time.time()
+        print(f"[PERF] Light I/O: {t1-t0:.1f}s")
+        dossier = exa_research if isinstance(exa_research, str) else ""
+    else:
+        print(f"[PERF] No research (no exa_key)")
 
     user_msg = f"""<content>
 Contenu de @{author} :
