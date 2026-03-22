@@ -263,7 +263,7 @@ async def _resolve_url_async(url: str, client: httpx.AsyncClient) -> str:
     if not any(short in url for short in ("t.co/", "bit.ly/", "tinyurl.com/", "ow.ly/")):
         return url
     try:
-        r = await client.head(url, follow_redirects=True, timeout=5)
+        r = await client.head(url, follow_redirects=True, timeout=3)
         final = str(r.url)
         return final if final != url else url
     except Exception:
@@ -283,9 +283,9 @@ async def _fetch_github_context_async(owner: str, repo: str,
     try:
         meta_resp, readme_resp = await asyncio.gather(
             client.get(f"https://api.github.com/repos/{owner}/{repo}",
-                       headers=gh, timeout=8),
+                       headers=gh, timeout=5),
             client.get(f"https://api.github.com/repos/{owner}/{repo}/readme",
-                       headers=gh, timeout=8),
+                       headers=gh, timeout=5),
         )
         if meta_resp.status_code == 200:
             d = meta_resp.json()
@@ -325,7 +325,7 @@ async def _exa_search_async(query: str, exa_key: str, client: httpx.AsyncClient,
         r = await client.post(f"{EXA_API_URL}/search",
                               headers={"x-api-key": exa_key,
                                        "Content-Type": "application/json"},
-                              json=body, timeout=10)
+                              json=body, timeout=6)
         if r.status_code == 200:
             return r.json().get("results", [])
     except Exception:
@@ -342,7 +342,7 @@ async def _exa_crawl_async(url: str, exa_key: str,
                                        "Content-Type": "application/json"},
                               json={"urls": [url],
                                     "text": {"maxCharacters": max_chars}},
-                              timeout=10)
+                              timeout=6)
         if r.status_code == 200:
             results = r.json().get("results", [])
             if results:
@@ -386,19 +386,19 @@ async def _research_topic_async(content: str, author: str,
         content, urls, github_repos or [])
 
     # ── Core searches (generic topic) ──
-    articles_fut = _exa_search_async(query, exa_key, client, num_results=5)
+    articles_fut = _exa_search_async(query, exa_key, client, num_results=3)
     reddit_fut = _exa_search_async(query, exa_key, client, num_results=3,
                                     include_domains=["reddit.com"], light=True)
     hn_fut = _exa_search_async(query, exa_key, client, num_results=3,
                                 include_domains=["news.ycombinator.com"], light=True)
-    tweets_fut = _exa_search_async(query, exa_key, client, num_results=3,
+    tweets_fut = _exa_search_async(query, exa_key, client, num_results=2,
                                     category="tweet", light=True)
 
     # ── Targeted searches (repo/project-specific) ──
     targeted_futs = []
     targeted_labels = []
 
-    for name in project_names[:3]:
+    for name in project_names[:2]:
         targeted_futs.append(_exa_search_async(
             f'"{name}" review criticism problems limitations issues',
             exa_key, client, num_results=3, light=True))
@@ -490,21 +490,23 @@ async def analyze_single_async(content: str, author: str, api_key: str,
                                 url: str = "", exa_key: str = "") -> dict:
     async with httpx.AsyncClient() as client:
         raw_urls = list(set(_extract_urls(content) + ([url] if url else [])))
-
-        resolve_task = _resolve_shortened_urls_async(raw_urls, client)
         gh_repos = _extract_github_repos(raw_urls)
+
+        # Launch ALL I/O in parallel: URL resolve + GitHub + Exa research
+        # Exa core searches don't need resolved URLs — only crawls do
+        resolve_task = _resolve_shortened_urls_async(raw_urls, client)
         gh_tasks = [_fetch_github_context_async(o, r, client)
                     for o, r in gh_repos[:2]]
-
-        resolved_urls, *gh_results = await asyncio.gather(
-            resolve_task, *gh_tasks, return_exceptions=True,
+        exa_task = (
+            _research_topic_async(content, author, raw_urls, exa_key, client,
+                                  github_repos=gh_repos)
+            if exa_key else asyncio.sleep(0)
         )
 
-        if isinstance(resolved_urls, Exception):
-            resolved_urls = raw_urls
-        unique_urls = list(dict.fromkeys(
-            resolved_urls if isinstance(resolved_urls, list) else raw_urls
-        ))
+        # Everything runs at the same time
+        exa_research, resolved_urls, *gh_results = await asyncio.gather(
+            exa_task, resolve_task, *gh_tasks, return_exceptions=True,
+        )
 
         dossier_parts = []
         for i, (owner, repo) in enumerate(gh_repos[:2]):
@@ -513,12 +515,8 @@ async def analyze_single_async(content: str, author: str, api_key: str,
                 dossier_parts.append(
                     f"=== REPO GITHUB VÉRIFIÉ: {owner}/{repo} ===\n{ctx}")
 
-        if exa_key:
-            exa_research = await _research_topic_async(
-                content, author, unique_urls, exa_key, client,
-                github_repos=gh_repos)
-            if exa_research:
-                dossier_parts.append(exa_research)
+        if exa_key and isinstance(exa_research, str) and exa_research:
+            dossier_parts.append(exa_research)
 
     dossier = "\n\n".join(dossier_parts)
 
@@ -545,7 +543,7 @@ Tu as ci-dessus un dossier complet. Base CHAQUE vérification sur ces données. 
     aclient = AsyncAnthropic(api_key=api_key)
     response = await aclient.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=4096,
+        max_tokens=2048,
         system=ANALYSIS_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
     )
