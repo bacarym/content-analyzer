@@ -559,14 +559,24 @@ async def api_reanalyze(tweet_id: str):
 
 @app.post("/api/reanalyze-batch")
 async def api_reanalyze_batch(tweet_ids: list[str]):
-    results = []
-    for tid in tweet_ids:
-        from database import get_bookmark
-        bm = get_bookmark(tid)
-        if bm:
-            a = await _analyze_and_save(bm)
-            results.append({"tweet_id": tid, "verdict": a.get("verdict")})
-    return {"results": results}
+    import asyncio
+    from database import get_bookmark
+    sem = asyncio.Semaphore(3)
+
+    async def _one(tid):
+        async with sem:
+            bm = get_bookmark(tid)
+            if not bm:
+                return {"tweet_id": tid, "error": "not found"}
+            try:
+                a = await _analyze_and_save(bm)
+                return {"tweet_id": tid, "verdict": a.get("verdict"), "summary": a.get("summary", "")}
+            except Exception as e:
+                print(f"[BATCH] {tid} failed: {e}")
+                return {"tweet_id": tid, "error": str(e)}
+
+    results = await asyncio.gather(*[_one(tid) for tid in tweet_ids])
+    return {"results": list(results)}
 
 
 @app.post("/api/brief/generate")

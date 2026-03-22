@@ -2009,11 +2009,8 @@
               );
             }
             if (df || dt) {
-              const useFetched = this.sortBy.startsWith("fetched");
               const getDate = (b) => {
-                const d = useFetched
-                  ? b.fetched_at || b.created_at
-                  : b.created_at;
+                const d = b.fetched_at || b.created_at;
                 return d ? d.slice(0, 10) : "";
               };
               if (df) list = list.filter((b) => getDate(b) >= df);
@@ -2182,34 +2179,35 @@
             this.analyzing = true;
             const ids = list.map((b) => b.tweet_id);
             this.analyzeProgress = `0/${ids.length}`;
-            let done = 0;
-            let errors = 0;
-            for (const id of ids) {
-              try {
-                const resp = await fetch(`/api/reanalyze/${id}`, {
-                  method: "POST",
-                });
-                if (resp.ok) {
-                  done++;
-                } else {
-                  errors++;
-                  const err = await resp.json().catch(() => ({}));
-                  console.error(
-                    `[Analyse] ${id} failed:`,
-                    err.error || resp.status,
+            try {
+              const resp = await fetch("/api/reanalyze-batch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(ids),
+              });
+              if (resp.ok) {
+                const d = await resp.json();
+                const results = d.results || [];
+                const done = results.filter((r) => r.verdict).length;
+                const errors = results.filter((r) => r.error).length;
+                results
+                  .filter((r) => r.error)
+                  .forEach((r) =>
+                    console.error(`[Analyse] ${r.tweet_id}:`, r.error),
                   );
+                this.analyzeProgress = `${done + errors}/${ids.length}`;
+                if (errors > 0) {
+                  this.showToast(`${done} OK, ${errors} erreur(s)`, "error");
+                } else {
+                  this.showToast(`${done} analyses terminées`);
                 }
-                this.analyzeProgress = `${done + errors}/${ids.length}`;
-              } catch (e) {
-                errors++;
-                console.error(`[Analyse] ${id} network error:`, e);
-                this.analyzeProgress = `${done + errors}/${ids.length}`;
+              } else {
+                const err = await resp.json().catch(() => ({}));
+                this.showToast(err.error || "Erreur serveur", "error");
               }
-            }
-            if (errors > 0) {
-              this.showToast(`${done} OK, ${errors} erreur(s)`, "error");
-            } else {
-              this.showToast(`${done} analyses terminées`);
+            } catch (e) {
+              console.error("[Analyse batch] error:", e);
+              this.showToast("Erreur réseau", "error");
             }
             await this.loadData();
             this.analyzing = false;
