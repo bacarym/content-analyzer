@@ -79,7 +79,7 @@ if _SB:
 
     def upsert_bookmark(tweet_id, author_username, author_name, content,
                          created_at, url, metrics=None, media_urls=None):
-        _sb.table("bookmarks").upsert({
+        row = {
             "tweet_id": tweet_id,
             "author_username": author_username,
             "author_name": author_name,
@@ -89,7 +89,15 @@ if _SB:
             "metrics": json.dumps(metrics or {}),
             "media_urls": json.dumps(media_urls or []),
             "fetched_at": datetime.utcnow().isoformat(),
-        }, on_conflict="tweet_id").execute()
+        }
+        # Only set fetched_at for NEW bookmarks, don't overwrite for existing
+        try:
+            _sb.table("bookmarks").insert(row).execute()
+        except Exception:
+            # Already exists — update without changing fetched_at
+            row.pop("fetched_at")
+            row.pop("tweet_id")
+            _sb.table("bookmarks").update(row).eq("tweet_id", tweet_id).execute()
 
     def save_analysis(tweet_id, tags, summary, claims_check, red_flags,
                       actionable, full_md, embedding=None, verdict="",
