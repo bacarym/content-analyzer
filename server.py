@@ -554,22 +554,12 @@ async def api_reanalyze(tweet_id: str):
     bm = get_bookmark(tweet_id)
     if not bm:
         return JSONResponse({"error": "Not found"}, status_code=404)
-    # Re-fetch content if stored content is too short (e.g. just a t.co URL)
-    # Always try FxTwitter — it extracts X Article text that the official API doesn't
-    if len(bm.get("content", "")) < 200:
-        fresh = None
-        # Try FxTwitter first (best for articles) — run in thread to not block
-        fx = await loop.run_in_executor(None, fetch_tweet_via_fxtwitter, tweet_id)
-        if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
-            fresh = fx
-        # Fallback to X API if FxTwitter didn't improve
-        if not fresh and X_BEARER:
-            xapi = await loop.run_in_executor(None, fetch_tweet_by_id, tweet_id, X_BEARER)
-            if xapi and not xapi.get("error") and len(xapi.get("content", "")) > len(bm.get("content", "")):
-                fresh = xapi
-        if fresh:
-            bm["content"] = fresh["content"]
-            upsert_bookmark(**{k: v for k, v in fresh.items() if k != "error"})
+    # Always re-fetch via FxTwitter — extracts X Articles, quote tweets, cards
+    # Cost: ~1s vs ~15s for Claude call, worth it for better content
+    fx = await loop.run_in_executor(None, fetch_tweet_via_fxtwitter, tweet_id)
+    if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
+        bm["content"] = fx["content"]
+        upsert_bookmark(**{k: v for k, v in fx.items() if k != "error"})
     try:
         a = await _analyze_and_save(bm)
         return {"verdict": a.get("verdict"), "summary": a.get("summary")}
@@ -594,11 +584,11 @@ async def api_reanalyze_batch(tweet_ids: list[str]):
                 return {"tweet_id": tid, "error": "not found"}
             # Re-fetch if content is too short (just a URL)
             # Run sync FxTwitter in thread to avoid blocking event loop
-            if len(bm.get("content", "")) < 200:
-                fx = await loop.run_in_executor(None, fetch_tweet_via_fxtwitter, tid)
-                if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
-                    bm["content"] = fx["content"]
-                    upsert_bookmark(**{k: v for k, v in fx.items() if k != "error"})
+            # Always re-fetch — extracts articles, quote tweets, cards
+            fx = await loop.run_in_executor(None, fetch_tweet_via_fxtwitter, tid)
+            if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
+                bm["content"] = fx["content"]
+                upsert_bookmark(**{k: v for k, v in fx.items() if k != "error"})
             try:
                 a = await _analyze_and_save(bm)
                 return {"tweet_id": tid, "verdict": a.get("verdict"), "summary": a.get("summary", "")}
