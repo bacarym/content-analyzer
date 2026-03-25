@@ -494,9 +494,15 @@ async def analyze_single_async(content: str, author: str, api_key: str,
     client = _get_httpx_client()
     raw_urls = list(set(_extract_urls(content) + ([url] if url else [])))
     gh_repos = _extract_github_repos(raw_urls)
+    # Identify external article URLs (not twitter/x.com/github)
+    _social = ("x.com", "twitter.com", "t.co")
+    article_urls = [
+        u for u in raw_urls
+        if not any(s in u for s in _social) and "github.com" not in u
+    ]
     has_interesting_urls = any(
         u for u in raw_urls
-        if "github.com" in u or not any(s in u for s in ("x.com", "twitter.com", "t.co"))
+        if "github.com" in u or not any(s in u for s in _social)
     )
 
     dossier = ""
@@ -507,14 +513,27 @@ async def analyze_single_async(content: str, author: str, api_key: str,
                     for o, r in gh_repos[:1]]
         exa_task = _research_topic_async(content, author, raw_urls, exa_key, client,
                                           github_repos=gh_repos)
+        # Crawl linked article content in parallel
+        crawl_tasks = [_exa_crawl_async(u, exa_key, client, max_chars=5000)
+                       for u in article_urls[:3]]
 
-        exa_research, resolved_urls, *gh_results = await asyncio.gather(
-            exa_task, resolve_task, *gh_tasks, return_exceptions=True,
+        exa_research, resolved_urls, *rest = await asyncio.gather(
+            exa_task, resolve_task, *gh_tasks, *crawl_tasks,
+            return_exceptions=True,
         )
+        gh_results = rest[:len(gh_repos[:1])]
+        crawl_results = rest[len(gh_repos[:1]):]
         t1 = time.time()
         print(f"[PERF] I/O phase: {t1-t0:.1f}s")
 
         dossier_parts = []
+        # Add crawled article content
+        for i, aurl in enumerate(article_urls[:3]):
+            text = crawl_results[i] if i < len(crawl_results) and not isinstance(crawl_results[i], Exception) else ""
+            if text:
+                dossier_parts.append(
+                    f"=== CONTENU ARTICLE: {aurl} ===\n{text}")
+
         for i, (owner, repo) in enumerate(gh_repos[:1]):
             ctx = gh_results[i] if not isinstance(gh_results[i], Exception) else ""
             if ctx:
@@ -527,11 +546,25 @@ async def analyze_single_async(content: str, author: str, api_key: str,
         dossier = "\n\n".join(dossier_parts)
     elif exa_key:
         # Light research — just articles, no GitHub
-        exa_research = await _research_topic_async(
+        # Also crawl any article URLs found in content
+        crawl_tasks = [_exa_crawl_async(u, exa_key, client, max_chars=5000)
+                       for u in article_urls[:3]]
+        exa_fut = _research_topic_async(
             content, author, [], exa_key, client, github_repos=[])
+        results = await asyncio.gather(exa_fut, *crawl_tasks, return_exceptions=True)
+        exa_research = results[0]
+        crawl_results = results[1:]
         t1 = time.time()
         print(f"[PERF] Light I/O: {t1-t0:.1f}s")
-        dossier = exa_research if isinstance(exa_research, str) else ""
+        dossier_parts = []
+        for i, aurl in enumerate(article_urls[:3]):
+            text = crawl_results[i] if i < len(crawl_results) and not isinstance(crawl_results[i], Exception) else ""
+            if text:
+                dossier_parts.append(
+                    f"=== CONTENU ARTICLE: {aurl} ===\n{text}")
+        if isinstance(exa_research, str) and exa_research:
+            dossier_parts.append(exa_research)
+        dossier = "\n\n".join(dossier_parts)
     else:
         print(f"[PERF] No research (no exa_key)")
 

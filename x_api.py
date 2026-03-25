@@ -208,11 +208,18 @@ def _format_tweet(tweet: dict, author: dict) -> dict:
     metrics = tweet.get("public_metrics", {})
     tweet_id = tweet.get("id", "")
     username = author.get("username", "unknown")
+    # Expand t.co URLs to real URLs using entities from X API v2
+    content = tweet.get("text", "")
+    for ue in tweet.get("entities", {}).get("urls", []):
+        tco = ue.get("url", "")
+        expanded = ue.get("expanded_url", "")
+        if tco and expanded:
+            content = content.replace(tco, expanded)
     return {
         "tweet_id": tweet_id,
         "author_username": username,
         "author_name": author.get("name", "Unknown"),
-        "content": tweet.get("text", ""),
+        "content": content,
         "created_at": tweet.get("created_at", ""),
         "url": f"https://x.com/{username}/status/{tweet_id}",
         "metrics": {
