@@ -136,14 +136,20 @@ def fetch_tweet_via_fxtwitter(tweet_id: str) -> Optional[dict]:
         card = data.get("card", {}) or {}
         card_url = card.get("url", "")
         if card_url:
-            # Replace any t.co link in content with the card URL
             content = re.sub(r'https?://t\.co/\S+', card_url, content)
-            # If content is still very short, enrich with card info
             if len(content) < 80:
                 card_title = card.get("title", "")
                 card_desc = card.get("description", "")
                 if card_title or card_desc:
                     content = f"{content}\n\n[Article] {card_title}\n{card_desc}".strip()
+        # Extract quoted tweet content (articles, threads)
+        quote = data.get("quote")
+        if quote:
+            quote_article = _extract_article_text(quote)
+            quote_text = quote_article or quote.get("text", "")
+            if quote_text:
+                quote_author = quote.get("author", {}).get("screen_name", "unknown")
+                content += f"\n\n--- Article cité de @{quote_author} ---\n{quote_text}"
         return {
             "tweet_id": str(data.get("id", tweet_id)),
             "author_username": data.get("author", {}).get("screen_name", "unknown"),
