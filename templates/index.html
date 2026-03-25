@@ -2182,7 +2182,7 @@
             let done = 0,
               errors = 0;
             this.analyzeProgress = `0/${total}`;
-            const CHUNK = 5;
+            const CHUNK = 10;
             try {
               for (let i = 0; i < total; i += CHUNK) {
                 const chunk = ids.slice(i, i + CHUNK);

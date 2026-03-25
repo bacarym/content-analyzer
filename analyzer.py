@@ -504,35 +504,44 @@ async def analyze_single_async(content: str, author: str, api_key: str,
         u for u in raw_urls
         if "github.com" in u or not any(s in u for s in _social)
     )
+    # Long content (X Articles, long threads) = the article IS the source
+    # Skip heavy Exa research, only do GitHub fetch + article crawl
+    is_long_content = len(content) > 2000
 
     dossier = ""
-    # Only do research if there are interesting URLs or repos
     if exa_key and (gh_repos or has_interesting_urls):
-        resolve_task = _resolve_shortened_urls_async(raw_urls, client)
-        gh_tasks = [_fetch_github_context_async(o, r, client)
-                    for o, r in gh_repos[:1]]
-        exa_task = _research_topic_async(content, author, raw_urls, exa_key, client,
-                                          github_repos=gh_repos)
-        # Crawl linked article content in parallel
-        crawl_tasks = [_exa_crawl_async(u, exa_key, client, max_chars=5000)
-                       for u in article_urls[:3]]
+        tasks = {}
+        tasks["resolve"] = _resolve_shortened_urls_async(raw_urls, client)
+        # GitHub fetch — always if repos found
+        gh_task_list = [_fetch_github_context_async(o, r, client)
+                        for o, r in gh_repos[:1]]
+        # Exa research — skip for long content (article is the source)
+        if not is_long_content:
+            tasks["exa"] = _research_topic_async(content, author, raw_urls, exa_key,
+                                                  client, github_repos=gh_repos)
+        # Crawl linked articles — only for short content with external URLs
+        crawl_list = []
+        if not is_long_content:
+            crawl_list = [_exa_crawl_async(u, exa_key, client, max_chars=5000)
+                          for u in article_urls[:3]]
 
-        exa_research, resolved_urls, *rest = await asyncio.gather(
-            exa_task, resolve_task, *gh_tasks, *crawl_tasks,
-            return_exceptions=True,
-        )
-        gh_results = rest[:len(gh_repos[:1])]
-        crawl_results = rest[len(gh_repos[:1]):]
+        all_tasks = [tasks.get("exa", asyncio.sleep(0)),
+                     tasks["resolve"], *gh_task_list, *crawl_list]
+        results = await asyncio.gather(*all_tasks, return_exceptions=True)
+
+        exa_research = results[0] if "exa" in tasks else ""
+        gh_results = results[2:2+len(gh_task_list)]
+        crawl_results = results[2+len(gh_task_list):]
         t1 = time.time()
-        print(f"[PERF] I/O phase: {t1-t0:.1f}s")
+        print(f"[PERF] I/O phase: {t1-t0:.1f}s (long={is_long_content})")
 
         dossier_parts = []
-        # Add crawled article content
         for i, aurl in enumerate(article_urls[:3]):
-            text = crawl_results[i] if i < len(crawl_results) and not isinstance(crawl_results[i], Exception) else ""
-            if text:
-                dossier_parts.append(
-                    f"=== CONTENU ARTICLE: {aurl} ===\n{text}")
+            if i < len(crawl_results):
+                text = crawl_results[i] if not isinstance(crawl_results[i], Exception) else ""
+                if text:
+                    dossier_parts.append(
+                        f"=== CONTENU ARTICLE: {aurl} ===\n{text}")
 
         for i, (owner, repo) in enumerate(gh_repos[:1]):
             ctx = gh_results[i] if not isinstance(gh_results[i], Exception) else ""
@@ -544,9 +553,8 @@ async def analyze_single_async(content: str, author: str, api_key: str,
             dossier_parts.append(exa_research)
 
         dossier = "\n\n".join(dossier_parts)
-    elif exa_key:
-        # Light research — just articles, no GitHub
-        # Also crawl any article URLs found in content
+    elif exa_key and not is_long_content:
+        # Light research — only for short content without repos
         crawl_tasks = [_exa_crawl_async(u, exa_key, client, max_chars=5000)
                        for u in article_urls[:3]]
         exa_fut = _research_topic_async(
@@ -566,7 +574,7 @@ async def analyze_single_async(content: str, author: str, api_key: str,
             dossier_parts.append(exa_research)
         dossier = "\n\n".join(dossier_parts)
     else:
-        print(f"[PERF] No research (no exa_key)")
+        print(f"[PERF] No research (long_content={is_long_content}, exa={'yes' if exa_key else 'no'})")
 
     user_msg = f"""<content>
 Contenu de @{author} :
@@ -587,8 +595,8 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
         user_msg += "\n\nAucune recherche externe n'a abouti. Analyse sur la base du contenu seul."
 
     t2 = time.time()
-    # More tokens for longer content (articles need more analysis space)
-    tokens = 2500 if len(content) > 500 else 1500
+    # Fewer tokens for faster responses — articles get more space
+    tokens = 2000 if len(content) > 500 else 1200
     aclient = _get_anthropic_client(api_key)
     response = await aclient.messages.create(
         model="claude-haiku-4-5-20251001",

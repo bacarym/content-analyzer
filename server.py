@@ -585,7 +585,7 @@ async def api_reanalyze_batch(tweet_ids: list[str]):
     import asyncio
     from database import get_bookmark
     loop = asyncio.get_event_loop()
-    sem = asyncio.Semaphore(5)
+    sem = asyncio.Semaphore(10)
 
     async def _one(tid):
         async with sem:
