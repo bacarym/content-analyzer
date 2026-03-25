@@ -2182,17 +2182,36 @@
             let done = 0,
               errors = 0;
             this.analyzeProgress = `0/${total}`;
-            const CHUNK = 10;
+            const CHUNK = 5;
+            const PARALLEL = 5;
             try {
-              for (let i = 0; i < total; i += CHUNK) {
-                const chunk = ids.slice(i, i + CHUNK);
-                const resp = await fetch("/api/reanalyze-batch", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(chunk),
-                });
-                if (resp.ok) {
-                  const d = await resp.json();
+              const chunks = [];
+              for (let i = 0; i < total; i += CHUNK)
+                chunks.push(ids.slice(i, i + CHUNK));
+              for (let w = 0; w < chunks.length; w += PARALLEL) {
+                const wave = chunks.slice(w, w + PARALLEL);
+                const responses = await Promise.all(
+                  wave.map((chunk) =>
+                    fetch("/api/reanalyze-batch", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(chunk),
+                    })
+                      .then((r) =>
+                        r.ok
+                          ? r.json()
+                          : {
+                              results: chunk.map(() => ({
+                                error: "server error",
+                              })),
+                            },
+                      )
+                      .catch(() => ({
+                        results: chunk.map(() => ({ error: "network error" })),
+                      })),
+                  ),
+                );
+                for (const d of responses) {
                   const results = d.results || [];
                   done += results.filter((r) => r.verdict).length;
                   errors += results.filter((r) => r.error).length;
@@ -2201,8 +2220,6 @@
                     .forEach((r) =>
                       console.error(`[Analyse] ${r.tweet_id}:`, r.error),
                     );
-                } else {
-                  errors += chunk.length;
                 }
                 this.analyzeProgress = `${done + errors}/${total}`;
               }
