@@ -510,8 +510,12 @@ async def api_analyze(
                         tweet = fetch_tweet_by_id(tweet_id, X_BEARER)
                         if tweet and tweet.get("error"):
                             tweet = None
-                    if not tweet:
-                        tweet = fetch_tweet_via_fxtwitter(tweet_id)
+                    # Always try FxTwitter if no tweet or content is short
+                    # (FxTwitter extracts X Article text that the official API doesn't)
+                    if not tweet or len(tweet.get("content", "")) < 200:
+                        fx = fetch_tweet_via_fxtwitter(tweet_id)
+                        if fx and len(fx.get("content", "")) > len((tweet or {}).get("content", "")):
+                            tweet = fx
                     if tweet:
                         upsert_bookmark(**{k: v for k, v in tweet.items() if k != "error"})
                         a = await _analyze_and_save(tweet)
@@ -549,15 +553,19 @@ async def api_reanalyze(tweet_id: str):
     if not bm:
         return JSONResponse({"error": "Not found"}, status_code=404)
     # Re-fetch content if stored content is too short (e.g. just a t.co URL)
-    if len(bm.get("content", "")) < 100:
+    # Always try FxTwitter — it extracts X Article text that the official API doesn't
+    if len(bm.get("content", "")) < 200:
         fresh = None
-        if X_BEARER:
-            fresh = fetch_tweet_by_id(tweet_id, X_BEARER)
-            if fresh and fresh.get("error"):
-                fresh = None
-        if not fresh:
-            fresh = fetch_tweet_via_fxtwitter(tweet_id)
-        if fresh and len(fresh.get("content", "")) > len(bm.get("content", "")):
+        # Try FxTwitter first (best for articles)
+        fx = fetch_tweet_via_fxtwitter(tweet_id)
+        if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
+            fresh = fx
+        # Fallback to X API if FxTwitter didn't improve
+        if not fresh and X_BEARER:
+            xapi = fetch_tweet_by_id(tweet_id, X_BEARER)
+            if xapi and not xapi.get("error") and len(xapi.get("content", "")) > len(bm.get("content", "")):
+                fresh = xapi
+        if fresh:
             bm["content"] = fresh["content"]
             upsert_bookmark(**{k: v for k, v in fresh.items() if k != "error"})
     try:
@@ -581,6 +589,12 @@ async def api_reanalyze_batch(tweet_ids: list[str]):
             bm = get_bookmark(tid)
             if not bm:
                 return {"tweet_id": tid, "error": "not found"}
+            # Re-fetch if content is too short (just a URL)
+            if len(bm.get("content", "")) < 200:
+                fx = fetch_tweet_via_fxtwitter(tid)
+                if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
+                    bm["content"] = fx["content"]
+                    upsert_bookmark(**{k: v for k, v in fx.items() if k != "error"})
             try:
                 a = await _analyze_and_save(bm)
                 return {"tweet_id": tid, "verdict": a.get("verdict"), "summary": a.get("summary", "")}
