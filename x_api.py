@@ -132,6 +132,18 @@ def fetch_tweet_via_fxtwitter(tweet_id: str) -> Optional[dict]:
         data = resp.json().get("tweet", {})
         # Use article content if available, otherwise regular text
         content = _extract_article_text(data) or data.get("text", "")
+        # If content is just a t.co URL, try to get the real URL from card
+        card = data.get("card", {}) or {}
+        card_url = card.get("url", "")
+        if card_url:
+            # Replace any t.co link in content with the card URL
+            content = re.sub(r'https?://t\.co/\S+', card_url, content)
+            # If content is still very short, enrich with card info
+            if len(content) < 80:
+                card_title = card.get("title", "")
+                card_desc = card.get("description", "")
+                if card_title or card_desc:
+                    content = f"{content}\n\n[Article] {card_title}\n{card_desc}".strip()
         return {
             "tweet_id": str(data.get("id", tweet_id)),
             "author_username": data.get("author", {}).get("screen_name", "unknown"),
