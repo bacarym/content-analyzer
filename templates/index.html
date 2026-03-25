@@ -2183,7 +2183,7 @@
               errors = 0;
             this.analyzeProgress = `0/${total}`;
             const CHUNK = 5;
-            const PARALLEL = 5;
+            const PARALLEL = 10;
             try {
               const chunks = [];
               for (let i = 0; i < total; i += CHUNK)
