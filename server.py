@@ -548,7 +548,9 @@ async def api_analyze(
 
 @app.post("/api/reanalyze/{tweet_id}")
 async def api_reanalyze(tweet_id: str):
+    import asyncio
     from database import get_bookmark
+    loop = asyncio.get_event_loop()
     bm = get_bookmark(tweet_id)
     if not bm:
         return JSONResponse({"error": "Not found"}, status_code=404)
@@ -556,13 +558,13 @@ async def api_reanalyze(tweet_id: str):
     # Always try FxTwitter — it extracts X Article text that the official API doesn't
     if len(bm.get("content", "")) < 200:
         fresh = None
-        # Try FxTwitter first (best for articles)
-        fx = fetch_tweet_via_fxtwitter(tweet_id)
+        # Try FxTwitter first (best for articles) — run in thread to not block
+        fx = await loop.run_in_executor(None, fetch_tweet_via_fxtwitter, tweet_id)
         if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
             fresh = fx
         # Fallback to X API if FxTwitter didn't improve
         if not fresh and X_BEARER:
-            xapi = fetch_tweet_by_id(tweet_id, X_BEARER)
+            xapi = await loop.run_in_executor(None, fetch_tweet_by_id, tweet_id, X_BEARER)
             if xapi and not xapi.get("error") and len(xapi.get("content", "")) > len(bm.get("content", "")):
                 fresh = xapi
         if fresh:
@@ -582,7 +584,8 @@ async def api_reanalyze(tweet_id: str):
 async def api_reanalyze_batch(tweet_ids: list[str]):
     import asyncio
     from database import get_bookmark
-    sem = asyncio.Semaphore(3)
+    loop = asyncio.get_event_loop()
+    sem = asyncio.Semaphore(5)
 
     async def _one(tid):
         async with sem:
@@ -590,8 +593,9 @@ async def api_reanalyze_batch(tweet_ids: list[str]):
             if not bm:
                 return {"tweet_id": tid, "error": "not found"}
             # Re-fetch if content is too short (just a URL)
+            # Run sync FxTwitter in thread to avoid blocking event loop
             if len(bm.get("content", "")) < 200:
-                fx = fetch_tweet_via_fxtwitter(tid)
+                fx = await loop.run_in_executor(None, fetch_tweet_via_fxtwitter, tid)
                 if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
                     bm["content"] = fx["content"]
                     upsert_bookmark(**{k: v for k, v in fx.items() if k != "error"})

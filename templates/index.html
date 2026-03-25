@@ -2178,32 +2178,38 @@
           async analyzeBatch(list) {
             this.analyzing = true;
             const ids = list.map((b) => b.tweet_id);
-            this.analyzeProgress = `0/${ids.length}`;
+            const total = ids.length;
+            let done = 0,
+              errors = 0;
+            this.analyzeProgress = `0/${total}`;
+            const CHUNK = 5;
             try {
-              const resp = await fetch("/api/reanalyze-batch", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(ids),
-              });
-              if (resp.ok) {
-                const d = await resp.json();
-                const results = d.results || [];
-                const done = results.filter((r) => r.verdict).length;
-                const errors = results.filter((r) => r.error).length;
-                results
-                  .filter((r) => r.error)
-                  .forEach((r) =>
-                    console.error(`[Analyse] ${r.tweet_id}:`, r.error),
-                  );
-                this.analyzeProgress = `${done + errors}/${ids.length}`;
-                if (errors > 0) {
-                  this.showToast(`${done} OK, ${errors} erreur(s)`, "error");
+              for (let i = 0; i < total; i += CHUNK) {
+                const chunk = ids.slice(i, i + CHUNK);
+                const resp = await fetch("/api/reanalyze-batch", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(chunk),
+                });
+                if (resp.ok) {
+                  const d = await resp.json();
+                  const results = d.results || [];
+                  done += results.filter((r) => r.verdict).length;
+                  errors += results.filter((r) => r.error).length;
+                  results
+                    .filter((r) => r.error)
+                    .forEach((r) =>
+                      console.error(`[Analyse] ${r.tweet_id}:`, r.error),
+                    );
                 } else {
-                  this.showToast(`${done} analyses terminées`);
+                  errors += chunk.length;
                 }
+                this.analyzeProgress = `${done + errors}/${total}`;
+              }
+              if (errors > 0) {
+                this.showToast(`${done} OK, ${errors} erreur(s)`, "error");
               } else {
-                const err = await resp.json().catch(() => ({}));
-                this.showToast(err.error || "Erreur serveur", "error");
+                this.showToast(`${done} analyses terminées`);
               }
             } catch (e) {
               console.error("[Analyse batch] error:", e);
