@@ -1583,40 +1583,80 @@
                       <div
                         x-show="brief._open"
                         x-transition
-                        class="border-t border-white/[0.05] p-4 space-y-3 bg-[#09090b]/50"
+                        class="border-t border-white/[0.05] p-5 space-y-4 bg-[#09090b]/50"
                       >
                         <p class="text-xs text-[#8E8E93] font-light">
-                          <span class="text-[#6b6b6b]">Demande · </span
-                          ><span x-text="brief.request"></span>
+                          <span class="text-[#6b6b6b]">Demande · </span><span x-text="brief.request"></span>
                         </p>
                         <template x-if="brief.data.objective">
-                          <p
-                            class="text-sm text-[#E5E5EA] font-light"
-                            x-text="brief.data.objective"
-                          ></p>
+                          <p class="text-sm text-[#D1D1D6] font-light" x-text="brief.data.objective"></p>
                         </template>
-                        <div class="flex gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            @click="copyToClipboard(brief.data.cursor_prompt || '')"
-                            class="px-3 py-1.5 rounded-lg text-xs bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA]"
-                          >
-                            Copier Cursor
-                          </button>
-                          <button
-                            type="button"
-                            @click="copyToClipboard(brief.data.claude_code_prompt || '')"
-                            class="px-3 py-1.5 rounded-lg text-xs bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA]"
-                          >
-                            Copier Claude
-                          </button>
-                          <button
-                            type="button"
-                            @click="openBriefChat(brief)"
-                            class="px-3 py-1.5 rounded-lg text-xs bg-[#FF8A00]/10 border border-[#FF8A00]/20 text-[#FF8A00] hover:bg-[#FF8A00]/20 transition-colors flex items-center gap-1.5"
-                          >
+                        <template x-if="brief.data.tech_stack_suggestion">
+                          <div>
+                            <div class="text-xs font-medium text-[#FF8A00] uppercase tracking-widest mb-1">Stack</div>
+                            <p class="text-sm text-[#D1D1D6] font-light" x-text="brief.data.tech_stack_suggestion"></p>
+                          </div>
+                        </template>
+                        <template x-if="brief.data.architecture_notes">
+                          <div>
+                            <div class="text-xs font-medium text-[#8E8E93] uppercase tracking-widest mb-1">Architecture</div>
+                            <p class="text-sm text-[#D1D1D6] font-light" x-text="brief.data.architecture_notes"></p>
+                          </div>
+                        </template>
+                        <template x-if="brief.data.relevant_resources && brief.data.relevant_resources.length">
+                          <div>
+                            <div class="text-xs font-medium text-[#34C759] uppercase tracking-widest mb-2">Ressources</div>
+                            <div class="space-y-2">
+                              <template x-for="res in brief.data.relevant_resources" :key="res.url">
+                                <div class="flex items-center gap-2 text-sm flex-wrap">
+                                  <span class="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase"
+                                    :class="res.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FFCC00]/10 text-[#FFCC00]'"
+                                    x-text="res.verdict"></span>
+                                  <a :href="res.url" target="_blank" class="text-[#FF8A00] hover:underline truncate max-w-[200px]" x-text="res.title"></a>
+                                  <span class="text-xs text-[#6b6b6b] truncate" x-text="res.why"></span>
+                                </div>
+                              </template>
+                            </div>
+                          </div>
+                        </template>
+                        <template x-if="brief.data.risks">
+                          <div class="p-4 rounded-xl bg-[#FF3B30]/10 border border-[#FF3B30]/20">
+                            <div class="text-xs font-medium text-[#FF3B30] mb-1">Risques</div>
+                            <p class="text-sm text-[#E5E5EA] font-light" x-text="brief.data.risks"></p>
+                          </div>
+                        </template>
+                        <template x-if="brief.data.next_steps && brief.data.next_steps.length">
+                          <div>
+                            <div class="text-xs font-medium text-[#FFCC00] uppercase tracking-widest mb-2">Prochaines étapes</div>
+                            <ol class="text-sm text-[#D1D1D6] font-light list-decimal list-inside space-y-1">
+                              <template x-for="(step, i) in brief.data.next_steps" :key="i">
+                                <li x-text="step"></li>
+                              </template>
+                            </ol>
+                          </div>
+                        </template>
+                        <div class="pt-3 border-t border-white/[0.06]" x-data="{ promptTab: 'cursor' }">
+                          <div class="flex gap-2 mb-3">
+                            <button type="button" @click="promptTab = 'cursor'"
+                              :class="promptTab === 'cursor' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Cursor</button>
+                            <button type="button" @click="promptTab = 'claude'"
+                              :class="promptTab === 'claude' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Claude Code</button>
+                          </div>
+                          <div class="relative">
+                            <pre class="text-xs text-[#D1D1D6] font-mono bg-[#000000] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
+                              x-text="promptTab === 'cursor' ? brief.data.cursor_prompt : brief.data.claude_code_prompt"></pre>
+                            <button type="button"
+                              @click="copyToClipboard(promptTab === 'cursor' ? brief.data.cursor_prompt : brief.data.claude_code_prompt)"
+                              class="absolute top-2 right-2 px-3 py-1 rounded-lg text-xs font-medium bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA] hover:bg-white/5">Copier</button>
+                          </div>
+                        </div>
+                        <div class="flex gap-2 flex-wrap pt-2">
+                          <button type="button" @click="openBriefChat(brief)"
+                            class="px-3 py-1.5 rounded-lg text-xs bg-[#FF8A00]/10 border border-[#FF8A00]/20 text-[#FF8A00] hover:bg-[#FF8A00]/20 transition-colors flex items-center gap-1.5">
                             <iconify-icon icon="solar:chat-round-dots-linear" class="text-sm"></iconify-icon>
-                            Chat
+                            Discuter & améliorer
                           </button>
                         </div>
                       </div>
