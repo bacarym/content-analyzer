@@ -849,7 +849,7 @@ Génère le brief et les prompts."""
 
     aclient = AsyncAnthropic(api_key=api_key)
     response = await aclient.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6-20250514",
         max_tokens=4096,
         system=BRIEF_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
@@ -952,7 +952,7 @@ async def chat_about_content_async(message: str, bookmark: dict,
 
     aclient = AsyncAnthropic(api_key=api_key)
     response = await aclient.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6-20250514",
         max_tokens=2048,
         system=CHAT_SYSTEM_PROMPT,
         messages=messages,
