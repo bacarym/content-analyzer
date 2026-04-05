@@ -586,7 +586,7 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
     tokens = 2500 if len(content) > 500 else 1500
     aclient = _get_anthropic_client(api_key)
     response = await aclient.messages.create(
-        model="claude-sonnet-4-6-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=tokens,
         system=ANALYSIS_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
@@ -849,7 +849,7 @@ Génère le brief et les prompts."""
 
     aclient = AsyncAnthropic(api_key=api_key)
     response = await aclient.messages.create(
-        model="claude-sonnet-4-6-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=4096,
         system=BRIEF_SYSTEM_CACHED,
         messages=[{"role": "user", "content": user_msg}],
@@ -952,7 +952,7 @@ async def chat_about_content_async(message: str, bookmark: dict,
 
     aclient = AsyncAnthropic(api_key=api_key)
     response = await aclient.messages.create(
-        model="claude-sonnet-4-6-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=2048,
         system=CHAT_SYSTEM_PROMPT,
         messages=messages,
@@ -1045,7 +1045,7 @@ async def chat_about_brief_async(message: str, brief_data: dict,
 
     aclient = _get_anthropic_client(api_key)
     response = await aclient.messages.create(
-        model="claude-sonnet-4-6-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=3000,
         system=BRIEF_CHAT_SYSTEM_PROMPT,
         messages=messages,

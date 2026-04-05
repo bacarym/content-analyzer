@@ -297,7 +297,7 @@ async def debug_anthropic():
         from anthropic import AsyncAnthropic
         aclient = AsyncAnthropic(api_key=ANTHROPIC_KEY)
         response = await aclient.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=10,
             messages=[{"role": "user", "content": "Say hi"}],
         )
