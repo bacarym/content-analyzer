@@ -606,52 +606,12 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
         }
 
 
-def analyze_single(content: str, author: str, api_key: str,
-                   url: str = "", exa_key: str = "") -> dict:
-    """Sync wrapper — used when no event loop is running."""
-    return asyncio.run(
-        analyze_single_async(content, author, api_key, url, exa_key))
 
 
 # ═══════════════════════════════════════
 # BATCH ANALYSIS — concurrent with semaphore
 # ═══════════════════════════════════════
 
-CATEGORIZE_BATCH_PROMPT = """Tu es un système de catégorisation. Pour chaque tweet, assigne 1-4 tags pertinents.
-
-Réponds UNIQUEMENT en JSON valide : un tableau d'objets avec "tweet_id" et "tags".
-
-Exemple :
-[
-  {"tweet_id": "123", "tags": ["AI", "LLM", "Open Source"]},
-  {"tweet_id": "456", "tags": ["Crypto", "DeFi"]}
-]
-
-Tags possibles (non exhaustif, tu peux en créer) : AI, LLM, Crypto, Web3, DeFi, Product Management, Startup, Open Source, Hardware, Design, Music Tech, Marketing, Developer Tools, Security, Data, Robotics, Gaming, AR/VR, Fintech, E-commerce, Social Media, Regulation, Research, Infrastructure.
-"""
-
-
-async def categorize_batch_async(tweets: list, api_key: str) -> list:
-    aclient = AsyncAnthropic(api_key=api_key)
-    tweets_text = "\n\n".join([
-        f"[ID: {t['tweet_id']}] @{t['author_username']}: {t['content'][:300]}"
-        for t in tweets
-    ])
-    response = await aclient.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=4000,
-        system=CATEGORIZE_BATCH_PROMPT,
-        messages=[{"role": "user", "content": tweets_text}],
-    )
-    raw = response.content[0].text.strip()
-    try:
-        return _parse_claude_json(raw)
-    except json.JSONDecodeError:
-        return []
-
-
-def categorize_batch(tweets: list, api_key: str) -> list:
-    return asyncio.run(categorize_batch_async(tweets, api_key))
 
 
 async def analyze_batch_async(tweets: list, api_key: str,
@@ -674,9 +634,6 @@ async def analyze_batch_async(tweets: list, api_key: str,
     return list(await asyncio.gather(*[_one(t) for t in tweets]))
 
 
-def analyze_batch(tweets: list, api_key: str,
-                  progress_callback=None, exa_key: str = "") -> list:
-    return asyncio.run(analyze_batch_async(tweets, api_key, exa_key))
 
 
 # ═══════════════════════════════════════
@@ -905,10 +862,6 @@ Génère le brief et les prompts."""
         return {"error": raw[:500]}
 
 
-def generate_brief(user_request: str, relevant_bookmarks: list,
-                   api_key: str, exa_key: str = "") -> dict:
-    return asyncio.run(
-        generate_brief_async(user_request, relevant_bookmarks, api_key, exa_key))
 
 
 # ═══════════════════════════════════════
@@ -1007,8 +960,112 @@ async def chat_about_content_async(message: str, bookmark: dict,
     return response.content[0].text.strip()
 
 
-def chat_about_content(message: str, bookmark: dict, analysis: dict,
-                       history: list, api_key: str, exa_key: str = "") -> str:
-    return asyncio.run(
-        chat_about_content_async(message, bookmark, analysis, history,
-                                 api_key, exa_key))
+# ═══════════════════════════════════════
+# BRIEF CHAT — discuss & evolve a brief with database search
+# ═══════════════════════════════════════
+
+BRIEF_CHAT_SYSTEM_PROMPT = """<role>
+Tu es un architecte logiciel senior et co-pilote de projet.
+Tu as accès au brief technique complet d'un projet, et tu peux :
+1. Répondre aux questions sur le brief
+2. Chercher dans la base de bookmarks analysés pour enrichir tes réponses
+3. Modifier le brief en fonction de la conversation
+</role>
+
+<context>
+L'utilisateur Bacary gère ces projets :
+- AI Agent Company (agents IA, automatisation, MCP)
+- Ledger (crypto, hardware wallet)
+- WhoGhost (Instagram unfollower tracking)
+- Groove Candy (music tech, distribution)
+</context>
+
+<rules>
+- Réponds en français, de manière concise et actionnable
+- Formate avec **gras** pour les points clés et `code` pour les termes techniques
+- Pas de markdown headers (#), utilise **gras** pour structurer
+- Si l'utilisateur demande de modifier le brief (changer la stack, ajouter une feature, modifier l'architecture, etc.), inclus un bloc <brief_update> avec les champs modifiés en JSON
+- Si tu utilises des résultats de recherche de la base de bookmarks, cite les sources
+- Sois proactif : si tu vois une opportunité d'amélioration basée sur les bookmarks, propose-la
+</rules>
+
+<brief_update_format>
+Quand tu modifies le brief, ajoute à la FIN de ta réponse un bloc comme ceci :
+<brief_update>
+{"field": "value", "field2": "value2"}
+</brief_update>
+
+Champs modifiables : project_name, objective, tech_stack_suggestion, architecture_notes, cursor_prompt, claude_code_prompt, risks, next_steps, relevant_resources
+Seuls les champs modifiés doivent être inclus. next_steps est un tableau de strings.
+</brief_update_format>"""
+
+
+async def chat_about_brief_async(message: str, brief_data: dict,
+                                  history: list, api_key: str,
+                                  exa_key: str = "",
+                                  bookmarks_context: str = "") -> dict:
+    """Chat about a brief. Returns {reply, updated_brief?}."""
+    brief_context = json.dumps(brief_data, ensure_ascii=False, indent=2)
+
+    messages = []
+    messages.append({
+        "role": "user",
+        "content": (f"<brief_context>\n{brief_context}\n</brief_context>\n\n"
+                    "Réponds 'OK, j'ai le contexte du brief.' pour confirmer.")
+    })
+    messages.append({"role": "assistant", "content": "OK, j'ai le contexte du brief."})
+
+    for h in history[:-1]:
+        if h.get("role") in ("user", "assistant"):
+            messages.append({"role": h["role"], "content": h["content"]})
+
+    user_msg = message
+
+    # Search bookmarks if relevant keywords detected
+    search_triggers = ("recherche", "cherche", "find", "search", "explore",
+                       "bookmark", "base", "données", "ressource", "alternative",
+                       "compétiteur", "concurrent", "approfondi", "exemple")
+    exa_supplement = ""
+    if exa_key and any(t in message.lower() for t in search_triggers):
+        async with httpx.AsyncClient() as client:
+            query = f"{message} {brief_data.get('objective', '')}"
+            results = await _exa_search_async(query, exa_key, client,
+                                              num_results=5)
+        if results:
+            exa_supplement = _format_exa_results(results, "Recherche web")
+
+    if bookmarks_context:
+        user_msg += f"\n\n<bookmarks_database>\n{bookmarks_context}\n</bookmarks_database>"
+
+    if exa_supplement:
+        user_msg += (f"\n\n<recherche_web>\n{exa_supplement}\n</recherche_web>\n"
+                     "Utilise ces résultats pour enrichir ta réponse.")
+
+    messages.append({"role": "user", "content": user_msg})
+
+    aclient = _get_anthropic_client(api_key)
+    response = await aclient.messages.create(
+        model="claude-sonnet-4-6-20250514",
+        max_tokens=3000,
+        system=BRIEF_CHAT_SYSTEM_PROMPT,
+        messages=messages,
+    )
+    raw_reply = response.content[0].text.strip()
+
+    # Parse optional brief update block
+    result = {"reply": raw_reply}
+    update_match = re.search(
+        r'<brief_update>\s*(\{.*?\})\s*</brief_update>',
+        raw_reply, re.DOTALL)
+    if update_match:
+        try:
+            updates = json.loads(update_match.group(1))
+            result["updated_fields"] = updates
+            # Clean the update block from the visible reply
+            result["reply"] = raw_reply[:update_match.start()].strip()
+        except json.JSONDecodeError:
+            pass
+
+    return result
+
+

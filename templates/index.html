@@ -1518,6 +1518,17 @@
                         </button>
                       </div>
                     </div>
+                    <!-- Brief Chat Button -->
+                    <div class="pt-4 border-t border-white/[0.06] flex justify-center">
+                      <button
+                        type="button"
+                        @click="openBriefChat(briefs.find(b => b.data?.project_name === currentBrief?.project_name) || briefs[0])"
+                        class="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-[#FF8A00]/20 to-[#E62E00]/20 border border-[#FF8A00]/30 hover:border-[#FF8A00]/50 flex items-center gap-2 transition-all"
+                      >
+                        <iconify-icon icon="solar:chat-round-dots-linear" class="text-lg text-[#FF8A00]"></iconify-icon>
+                        Discuter & améliorer ce brief
+                      </button>
+                    </div>
                   </div>
                 </div>
               </template>
@@ -1599,6 +1610,14 @@
                           >
                             Copier Claude
                           </button>
+                          <button
+                            type="button"
+                            @click="openBriefChat(brief)"
+                            class="px-3 py-1.5 rounded-lg text-xs bg-[#FF8A00]/10 border border-[#FF8A00]/20 text-[#FF8A00] hover:bg-[#FF8A00]/20 transition-colors flex items-center gap-1.5"
+                          >
+                            <iconify-icon icon="solar:chat-round-dots-linear" class="text-sm"></iconify-icon>
+                            Chat
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1639,7 +1658,7 @@
           <span class="text-sm font-medium text-white">Chat</span>
           <span
             class="text-xs text-[#6b6b6b] font-light truncate max-w-[200px]"
-            x-text="selectedBm ? getTitle(selectedBm).slice(0, 40) : ''"
+            x-text="chatMode === 'brief' ? ('Brief · ' + (chatBriefData?.project_name || '').slice(0, 30)) : (selectedBm ? getTitle(selectedBm).slice(0, 40) : '')"
           ></span>
         </div>
         <button
@@ -1660,8 +1679,8 @@
         <div class="text-center py-3">
           <span
             class="text-[10px] text-[#6b6b6b] bg-[#1C1C1E] px-3 py-1 rounded-full"
-            >Claude a le contexte complet de cette analyse</span
-          >
+            x-text="chatMode === 'brief' ? 'Claude a le contexte du brief + accès à ta base de bookmarks' : 'Claude a le contexte complet de cette analyse'"
+          ></span>
         </div>
 
         <template x-for="(msg, i) in chatMessages" :key="i">
@@ -1720,35 +1739,36 @@
       <div
         class="border-t border-white/[0.05] p-4 bg-[#0a0a0c]/80 backdrop-blur-xl shrink-0"
       >
-        <div class="flex gap-2 mb-2">
-          <button
-            type="button"
-            @click="chatInput = 'Quelles sont les alternatives ?'; sendChat()"
-            class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap"
-          >
-            Alternatives ?
-          </button>
-          <button
-            type="button"
-            @click="chatInput = 'Comment intégrer ça dans mes projets ?'; sendChat()"
-            class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap"
-          >
-            Pour mes projets ?
-          </button>
-          <button
-            type="button"
-            @click="chatInput = 'Fais une recherche approfondie sur ce sujet'; sendChat()"
-            class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap"
-          >
-            Recherche +
-          </button>
+        <div class="flex gap-2 mb-2 overflow-x-auto no-scrollbar">
+          <template x-if="chatMode === 'bookmark'">
+            <div class="flex gap-2">
+              <button type="button" @click="chatInput = 'Quelles sont les alternatives ?'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Alternatives ?</button>
+              <button type="button" @click="chatInput = 'Comment intégrer ça dans mes projets ?'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Pour mes projets ?</button>
+              <button type="button" @click="chatInput = 'Fais une recherche approfondie sur ce sujet'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Recherche +</button>
+            </div>
+          </template>
+          <template x-if="chatMode === 'brief'">
+            <div class="flex gap-2">
+              <button type="button" @click="chatInput = 'Cherche dans mes bookmarks des ressources pertinentes pour ce brief'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#FF8A00] bg-[#FF8A00]/10 border border-[#FF8A00]/20 hover:bg-[#FF8A00]/20 transition-colors whitespace-nowrap">Chercher ressources</button>
+              <button type="button" @click="chatInput = 'Propose une stack alternative et mets à jour le brief'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Stack alternative</button>
+              <button type="button" @click="chatInput = 'Améliore le prompt Cursor pour le rendre plus détaillé'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Améliorer prompt</button>
+              <button type="button" @click="chatInput = 'Quels sont les risques que tu vois et comment les mitiger ?'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Risques ?</button>
+            </div>
+          </template>
         </div>
         <div class="flex items-center gap-2">
           <input
             type="text"
             x-model="chatInput"
             @keydown.enter.prevent="sendChat()"
-            placeholder="Pose une question sur ce contenu..."
+            :placeholder="chatMode === 'brief' ? 'Modifie la stack, ajoute des features, cherche des ressources...' : 'Pose une question sur ce contenu...'"
             class="flex-1 bg-[#151517] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-[#E5E5EA] placeholder-[#6b6b6b] outline-none focus:border-white/15 font-light"
           />
           <button
@@ -1873,6 +1893,8 @@
           chatMessages: [],
           chatInput: "",
           chatLoading: false,
+          chatMode: "bookmark",
+          chatBriefId: null,
 
           get allTags() {
             const tagMap = {};
@@ -2341,12 +2363,26 @@
 
           openChat() {
             if (!this.selectedBm) return;
+            this.chatMode = "bookmark";
             if (
               !this.chatMessages.length ||
               this._chatBmId !== this.selectedBm.tweet_id
             ) {
               this.chatMessages = [];
               this._chatBmId = this.selectedBm.tweet_id;
+            }
+            this.chatOpen = true;
+            this.$nextTick(() => this.scrollChat());
+          },
+
+          openBriefChat(brief) {
+            if (!brief || !brief.id) return;
+            this.chatMode = "brief";
+            this.chatBriefId = brief.id;
+            this.chatBriefData = brief.data || {};
+            if (this._chatBriefId !== brief.id) {
+              this.chatMessages = [];
+              this._chatBriefId = brief.id;
             }
             this.chatOpen = true;
             this.$nextTick(() => this.scrollChat());
@@ -2376,37 +2412,51 @@
 
           async sendChat() {
             const msg = this.chatInput.trim();
-            if (!msg || this.chatLoading || !this.selectedBm) return;
+            if (!msg || this.chatLoading) return;
+            if (this.chatMode === "bookmark" && !this.selectedBm) return;
+            if (this.chatMode === "brief" && !this.chatBriefId) return;
             this.chatMessages.push({ role: "user", content: msg });
             this.chatInput = "";
             this.chatLoading = true;
             this.$nextTick(() => this.scrollChat());
             try {
-              const r = await fetch("/api/chat", {
+              let url, payload;
+              const history = this.chatMessages.filter((m) => m.role !== "typing").slice(-10);
+              if (this.chatMode === "brief") {
+                url = "/api/brief/chat";
+                payload = { brief_id: this.chatBriefId, message: msg, history };
+              } else {
+                url = "/api/chat";
+                payload = { message: msg, tweet_id: this.selectedBm.tweet_id, history };
+              }
+              const r = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  message: msg,
-                  tweet_id: this.selectedBm.tweet_id,
-                  history: this.chatMessages
-                    .filter((m) => m.role !== "typing")
-                    .slice(-10),
-                }),
+                body: JSON.stringify(payload),
               });
               const d = await r.json();
               if (d.error) {
-                this.chatMessages.push({
-                  role: "assistant",
-                  content: "Erreur : " + d.error,
-                });
+                this.chatMessages.push({ role: "assistant", content: "Erreur : " + d.error });
               } else {
                 this.chatMessages.push({ role: "assistant", content: d.reply });
+                // If brief was updated by Claude, refresh the brief data
+                if (d.updated_brief && this.chatMode === "brief") {
+                  this.chatBriefData = d.updated_brief;
+                  // Update in briefs list
+                  const idx = this.briefs.findIndex((b) => b.id === this.chatBriefId);
+                  if (idx >= 0) this.briefs[idx].data = d.updated_brief;
+                  // Update currentBrief if it matches
+                  if (this.currentBrief && this.currentBrief.project_name === d.updated_brief.project_name) {
+                    this.currentBrief = d.updated_brief;
+                  }
+                  this.chatMessages.push({
+                    role: "assistant",
+                    content: "**Brief mis à jour** — les modifications sont appliquées.",
+                  });
+                }
               }
             } catch (e) {
-              this.chatMessages.push({
-                role: "assistant",
-                content: "Erreur de connexion.",
-              });
+              this.chatMessages.push({ role: "assistant", content: "Erreur de connexion." });
             } finally {
               this.chatLoading = false;
               this.$nextTick(() => this.scrollChat());

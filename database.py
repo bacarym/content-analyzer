@@ -285,6 +285,26 @@ if _SB:
     def delete_brief(brief_id):
         _sb.table("briefs").delete().eq("id", brief_id).execute()
 
+    def get_brief(brief_id):
+        try:
+            resp = _sb.table("briefs").select("*").eq("id", brief_id).maybe_single().execute()
+            if resp and resp.data:
+                d = resp.data
+                try:
+                    d["_parsed"] = json.loads(d.get("brief_json", "{}"))
+                except Exception:
+                    d["_parsed"] = {}
+                return d
+        except Exception:
+            pass
+        return None
+
+    def update_brief(brief_id, brief_data):
+        _sb.table("briefs").update({
+            "brief_json": json.dumps(brief_data, ensure_ascii=False),
+            "project_name": brief_data.get("project_name", ""),
+        }).eq("id", brief_id).execute()
+
     def search_analyzed_bookmarks(query, min_verdict_score=1):
         query_lower = query.lower()
         keywords = [w.strip() for w in query_lower.split() if len(w.strip()) > 2]
@@ -750,6 +770,27 @@ else:
     def delete_brief(brief_id):
         conn = get_connection()
         _execute(conn, "DELETE FROM briefs WHERE id = ?", (brief_id,))
+        conn.commit()
+        conn.close()
+
+    def get_brief(brief_id):
+        conn = get_connection()
+        row = _fetchone(conn, "SELECT * FROM briefs WHERE id = ?", (brief_id,))
+        conn.close()
+        if not row:
+            return None
+        try:
+            row["_parsed"] = json.loads(row.get("brief_json", "{}"))
+        except Exception:
+            row["_parsed"] = {}
+        return row
+
+    def update_brief(brief_id, brief_data):
+        conn = get_connection()
+        _execute(conn, """
+            UPDATE briefs SET brief_json = ?, project_name = ? WHERE id = ?
+        """, (json.dumps(brief_data, ensure_ascii=False),
+              brief_data.get("project_name", ""), brief_id))
         conn.commit()
         conn.close()
 

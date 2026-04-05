@@ -14,12 +14,13 @@ from database import (
     init_db, upsert_bookmark, save_analysis, get_all_bookmarks,
     get_analysis, get_all_categories, get_stats, get_bookmarks_grouped,
     search_analyzed_bookmarks, save_brief, get_all_briefs, delete_brief,
+    get_brief, update_brief,
     save_oauth_pkce, pop_oauth_pkce, get_oauth_tokens, set_oauth_tokens,
     clear_oauth_tokens,
 )
 from analyzer import (
     analyze_single_async, generate_markdown_report, fetch_web_content,
-    generate_brief_async, chat_about_content_async,
+    generate_brief_async, chat_about_content_async, chat_about_brief_async,
 )
 from x_api import (
     extract_tweet_id, fetch_tweet_by_id, fetch_tweet_via_fxtwitter,
@@ -652,6 +653,70 @@ async def api_chat(request: Request):
     except Exception as e:
         print(f"[CHAT] Error: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/brief/chat")
+async def api_brief_chat(request: Request):
+    body = await request.json()
+    brief_id = body.get("brief_id")
+    message = body.get("message", "").strip()
+    history = body.get("history", [])
+    if not message or not brief_id:
+        return JSONResponse({"error": "Missing message or brief_id"}, status_code=400)
+    if not ANTHROPIC_KEY:
+        return JSONResponse({"error": "Anthropic API key not configured"}, status_code=500)
+    brief = get_brief(brief_id)
+    if not brief:
+        return JSONResponse({"error": "Brief not found"}, status_code=404)
+    brief_data = brief.get("_parsed", {})
+
+    # Search bookmarks for context if the message seems to need it
+    bookmarks_context = ""
+    search_keywords = message.split()[:5]
+    query = " ".join(search_keywords)
+    if len(query) > 5:
+        relevant = search_analyzed_bookmarks(query, min_verdict_score=1)
+        if relevant:
+            parts = []
+            for bm in relevant[:8]:
+                parts.append(
+                    f"[{(bm.get('verdict') or '').upper()}] @{bm.get('author_username', '')}: "
+                    f"{(bm.get('summary') or '')[:200]} | "
+                    f"Actions: {(bm.get('actionable') or '')[:150]} | "
+                    f"URL: {bm.get('url', '')}"
+                )
+            bookmarks_context = "\n".join(parts)
+
+    try:
+        result = await chat_about_brief_async(
+            message=message,
+            brief_data=brief_data,
+            history=history,
+            api_key=ANTHROPIC_KEY,
+            exa_key=EXA_KEY,
+            bookmarks_context=bookmarks_context,
+        )
+        # If Claude returned brief updates, apply them
+        if result.get("updated_fields"):
+            updated_data = {**brief_data, **result["updated_fields"]}
+            update_brief(brief_id, updated_data)
+            result["updated_brief"] = updated_data
+        return result
+    except Exception as e:
+        print(f"[BRIEF_CHAT] Error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.put("/api/briefs/{brief_id}")
+async def api_update_brief(brief_id: int, request: Request):
+    body = await request.json()
+    brief = get_brief(brief_id)
+    if not brief:
+        return JSONResponse({"error": "Brief not found"}, status_code=404)
+    current_data = brief.get("_parsed", {})
+    updated_data = {**current_data, **body}
+    update_brief(brief_id, updated_data)
+    return {"ok": True, "data": updated_data}
 
 
 if __name__ == "__main__":
