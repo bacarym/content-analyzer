@@ -534,15 +534,25 @@ async def api_analyze(
                 else:
                     # Try Exa crawl first (handles Medium, paywalls, JS-rendered pages)
                     content_text = ""
+                    fetch_debug = []
                     if EXA_KEY:
                         import httpx as _httpx
                         async with _httpx.AsyncClient() as _client:
                             content_text = await _exa_crawl_async(url, EXA_KEY, _client, max_chars=6000, timeout=15)
+                        if content_text:
+                            fetch_debug.append(f"exa_ok:{len(content_text)}")
+                        else:
+                            fetch_debug.append("exa_empty")
+                    else:
+                        fetch_debug.append("no_exa_key")
                     # Fallback to direct fetch
                     if not content_text:
                         web = fetch_web_content(url)
                         if not web.get("error"):
                             content_text = web.get("content", "")
+                            fetch_debug.append(f"fetch_ok:{len(content_text)}")
+                        else:
+                            fetch_debug.append(f"fetch_err:{web['error'][:80]}")
                     if content_text:
                         fid = "web_" + hashlib.md5(url.encode()).hexdigest()[:12]
                         domain = url.split("/")[2] if len(url.split("/")) > 2 else url
@@ -555,7 +565,8 @@ async def api_analyze(
                         a = await _analyze_and_save(bm)
                         results.append({"url": url, "verdict": a.get("verdict", ""), "summary": a.get("summary", "")})
                     else:
-                        results.append({"url": url, "error": "Impossible de récupérer le contenu de cette URL"})
+                        print(f"[FETCH_FAIL] {url}: {fetch_debug}")
+                        results.append({"url": url, "error": f"Impossible de récupérer le contenu ({', '.join(fetch_debug)})"})
             elif item[0] == "file":
                 fname, content = item[1], item[2]
                 fid = "file_" + hashlib.md5(content[:500].encode()).hexdigest()[:12]
