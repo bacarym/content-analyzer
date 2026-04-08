@@ -403,12 +403,23 @@ async def _exa_crawl_async(url: str, exa_key: str,
                               headers={"x-api-key": exa_key,
                                        "Content-Type": "application/json"},
                               json={"urls": [url],
-                                    "text": {"maxCharacters": max_chars}},
+                                    "text": {"maxCharacters": max_chars},
+                                    "livecrawl": "always",
+                                    "livecrawlTimeout": 10000},
                               timeout=timeout)
         if r.status_code == 200:
-            results = r.json().get("results", [])
+            data = r.json()
+            results = data.get("results", [])
             if results:
-                return results[0].get("text", "")
+                text = results[0].get("text", "")
+                if text:
+                    return text
+            # Check statuses for per-URL errors
+            statuses = data.get("statuses", [])
+            if statuses:
+                print(f"[EXA_CRAWL] {url}: status={statuses[0]}")
+        else:
+            print(f"[EXA_CRAWL] {url}: HTTP {r.status_code} {r.text[:200]}")
     except Exception as e:
         print(f"[EXA_CRAWL] {url}: {e}")
     return ""
