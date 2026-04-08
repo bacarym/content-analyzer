@@ -569,7 +569,7 @@ async def api_analyze(
                         if content_text:
                             fetch_debug.append(f"exa_ok:{len(content_text)}")
                         else:
-                            fetch_debug.append("exa_empty")
+                            fetch_debug.append("exa_fail")
                     else:
                         fetch_debug.append("no_exa_key")
                     # Fallback to direct fetch

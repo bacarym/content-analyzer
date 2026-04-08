@@ -682,8 +682,10 @@ def fetch_web_content(url: str) -> dict:
                         "metrics": {"score": score}, "source_type": "reddit"}
 
         r = requests.get(url, headers=headers, timeout=15)
-        r.raise_for_status()
         html = r.text
+        # Only fail on empty response or Cloudflare challenge pages
+        if r.status_code >= 400 and (len(html) < 1000 or "Enable JavaScript and cookies to continue" in html):
+            r.raise_for_status()
         text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
         text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
         text = re.sub(r'<[^>]+>', ' ', text)
