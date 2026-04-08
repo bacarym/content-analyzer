@@ -44,9 +44,6 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
-      .bg-noise {
-        display: none;
-      }
       .mask-fade-bottom {
         -webkit-mask-image: linear-gradient(
           to bottom,
@@ -75,8 +72,8 @@
         }
       }
       .spinner {
-        border: 2px solid rgba(255, 138, 0, 0.25);
-        border-top-color: #ff8a00;
+        border: 2px solid rgba(232, 93, 0, 0.25);
+        border-top-color: #E85D00;
         border-radius: 50%;
         width: 16px;
         height: 16px;
@@ -98,22 +95,16 @@
       .btn-primary:hover {
         background: #FF6B00;
       }
-      .orange-glow {
-        display: none;
-      }
-      .shimmer {
-        position: relative;
-      }
     </style>
   </head>
   <body
-    class="bg-[#000000] text-[#E5E5EA] antialiased selection:bg-[#FF8A00]/30 selection:text-white h-screen overflow-hidden flex"
+    class="bg-[#0A0A0C] text-[#E5E5EA] antialiased selection:bg-[#E85D00]/30 selection:text-white h-screen overflow-hidden flex"
     x-data="app()"
     x-init="init()"
   >
     <!-- ═══ Sidebar (desktop) ═══ -->
     <aside
-      class="hidden md:flex w-64 shrink-0 flex-col border-r border-white/[0.05] bg-[#000000] z-20"
+      class="hidden md:flex w-64 shrink-0 flex-col border-r border-white/[0.05] bg-[#0A0A0C] z-20"
     >
       <div class="h-16 flex items-center px-6 border-b border-white/[0.05]">
         <span class="text-xl font-medium tracking-tighter text-white"
@@ -221,19 +212,16 @@
     <main
       class="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative"
     >
-      <div
-        class="absolute inset-0 bg-noise mix-blend-overlay pointer-events-none opacity-50 z-0"
-      ></div>
 
       <!-- ═══ LEFT COLUMN: List / Explore ═══ -->
       <section
-        class="w-full md:w-[380px] lg:w-[420px] flex flex-col border-r border-white/[0.05] bg-[#000000] z-10 h-full relative"
+        class="w-full md:w-[380px] lg:w-[420px] flex flex-col border-r border-white/[0.05] bg-[#0A0A0C] z-10 h-full relative"
         :class="{ 'hidden md:flex': selectedBm && tab === 'bookmarks' }"
         x-show="tab === 'bookmarks'"
       >
         <!-- Header & Import -->
         <div
-          class="px-5 pt-6 pb-4 flex flex-col gap-4 border-b border-white/[0.05] bg-[#000000]/80 backdrop-blur-xl sticky top-0 z-20"
+          class="px-5 pt-6 pb-4 flex flex-col gap-4 border-b border-white/[0.05] bg-[#0A0A0C] sticky top-0 z-20"
         >
           <div class="flex justify-between items-center">
             <h1 class="text-xl font-medium tracking-tight text-white">
@@ -428,7 +416,7 @@
             </div>
             <select
               x-model="sortBy"
-              class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E8E93] outline-none"
+              class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-xs text-[#8E8E93] outline-none"
             >
               <option value="created_desc">Tweet récent</option>
               <option value="created_asc">Tweet ancien</option>
@@ -468,7 +456,7 @@
                 type="button"
                 @click="open = !open"
                 class="w-full flex items-center justify-between bg-[#151517] border border-white/[0.03] rounded-lg px-3 py-1.5 text-xs text-left transition-colors"
-                :class="filter.tag ? 'text-[#FF8A00]' : 'text-[#6b6b6b]'"
+                :class="filter.tag ? 'text-[#E85D00]' : 'text-[#6b6b6b]'"
               >
                 <span class="flex items-center gap-1.5 truncate">
                   <iconify-icon
@@ -493,7 +481,7 @@
                   type="button"
                   @click="filter.tag = ''; open = false"
                   class="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-                  :class="!filter.tag ? 'text-[#FF8A00]' : 'text-[#8E8E93]'"
+                  :class="!filter.tag ? 'text-[#E85D00]' : 'text-[#8E8E93]'"
                 >
                   Tous les topics
                 </button>
@@ -502,7 +490,7 @@
                     type="button"
                     @click="filter.tag = t; open = false"
                     class="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors truncate"
-                    :class="filter.tag === t ? 'text-[#FF8A00]' : 'text-[#D1D1D6]'"
+                    :class="filter.tag === t ? 'text-[#E85D00]' : 'text-[#D1D1D6]'"
                     x-text="t"
                   ></button>
                 </template>
@@ -525,7 +513,7 @@
               <button
                 type="button"
                 @click="applyDateFilter()"
-                class="px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-[#FF8A00] bg-[#FF8A00]/10 border border-[#FF8A00]/20 hover:bg-[#FF8A00]/20 transition-colors shrink-0"
+                class="px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-[#E85D00] bg-[#E85D00]/10 border border-[#E85D00]/20 hover:bg-[#E85D00]/20 transition-colors shrink-0"
               >
                 OK
               </button>
@@ -569,14 +557,14 @@
             </button>
             <div
               x-show="analyzing"
-              class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FF8A00]/10 border border-[#FF8A00]/20"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#E85D00]/10 border border-[#E85D00]/20"
             >
               <span
                 class="spinner"
                 style="width: 12px; height: 12px; border-width: 1.5px"
               ></span>
               <span
-                class="text-xs font-medium text-[#FF8A00]"
+                class="text-xs font-medium text-[#E85D00]"
                 x-text="analyzeProgress"
               ></span>
             </div>
@@ -609,7 +597,7 @@
               <iconify-icon
                 icon="solar:refresh-linear"
                 class="text-lg"
-                :class="pullDistance > 50 ? 'text-[#FF8A00]' : ''"
+                :class="pullDistance > 50 ? 'text-[#E85D00]' : ''"
               ></iconify-icon>
               <span
                 x-text="pullDistance > 50 ? 'Relâcher pour rafraîchir' : 'Tirer pour rafraîchir'"
@@ -764,7 +752,7 @@
               <div class="flex-1 flex flex-col overflow-hidden fade-in">
                 <!-- Detail Header -->
                 <div
-                  class="h-14 border-b border-white/[0.05] flex items-center justify-between px-6 bg-[#09090b]/80 backdrop-blur-xl z-20 shrink-0"
+                  class="h-14 border-b border-white/[0.05] flex items-center justify-between px-6 bg-[#09090b] z-20 shrink-0"
                 >
                   <div class="flex items-center gap-3">
                     <button
@@ -848,7 +836,7 @@
                       <div class="flex flex-wrap gap-1.5 mt-3">
                         <span
                           x-show="selectedBm.translation"
-                          class="px-2 py-0.5 rounded bg-[#FF8A00]/10 text-[#FF8A00] text-[10px] font-medium border border-[#FF8A00]/15"
+                          class="px-2 py-0.5 rounded bg-[#E85D00]/10 text-[#E85D00] text-[10px] font-medium border border-[#E85D00]/15"
                           >FR Traduit</span
                         >
                         <template
@@ -884,15 +872,15 @@
                         </div>
 
                         <div
-                          class="w-full bg-[#151517] rounded-[24px] rounded-tl-sm p-6 border border-white/[0.03] shadow-lg space-y-6"
+                          class="w-full bg-[#151517] rounded-xl p-6 border border-white/[0.03] space-y-6"
                         >
                           <!-- Translation (collapsible) -->
                           <details
                             x-show="selectedBm.translation"
-                            class="group rounded-xl bg-[#FF8A00]/5 border border-[#FF8A00]/15 overflow-hidden"
+                            class="group rounded-xl bg-[#E85D00]/5 border border-[#E85D00]/15 overflow-hidden"
                           >
                             <summary
-                              class="px-4 py-3 text-xs font-medium text-[#FF8A00] uppercase tracking-widest cursor-pointer hover:bg-[#FF8A00]/10 transition-colors flex items-center gap-2 select-none"
+                              class="px-4 py-3 text-xs font-medium text-[#E85D00] uppercase tracking-widest cursor-pointer hover:bg-[#E85D00]/10 transition-colors flex items-center gap-2 select-none"
                             >
                               <iconify-icon
                                 icon="solar:alt-arrow-down-linear"
@@ -928,7 +916,7 @@
                           <!-- Conclusion (open by default) -->
                           <div x-show="selectedBm.conclusion">
                             <h2
-                              class="text-xs font-medium text-[#FF8A00] uppercase tracking-widest mb-2"
+                              class="text-xs font-medium text-[#E85D00] uppercase tracking-widest mb-2"
                             >
                               Conclusion
                             </h2>
@@ -1017,7 +1005,7 @@
                             class="group rounded-xl border border-white/[0.05] overflow-hidden"
                           >
                             <summary
-                              class="px-4 py-3 text-xs font-medium text-[#FF8A00] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none"
+                              class="px-4 py-3 text-xs font-medium text-[#E85D00] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none"
                             >
                               <iconify-icon
                                 icon="solar:alt-arrow-down-linear"
@@ -1095,7 +1083,7 @@
                             </summary>
                             <div class="px-4 pb-4">
                               <pre
-                                class="text-xs text-[#6b6b6b] bg-[#000000] rounded-xl p-4 max-h-48 overflow-auto border border-white/[0.05]"
+                                class="text-xs text-[#6b6b6b] bg-[#0A0A0C] rounded-xl p-4 max-h-48 overflow-auto border border-white/[0.05]"
                                 x-text="selectedBm.content"
                               ></pre>
                             </div>
@@ -1129,7 +1117,7 @@
                     class="max-w-3xl mx-auto px-6 pb-8 pt-4 pointer-events-auto"
                   >
                     <div
-                      class="bg-[#1C1C1E]/95 backdrop-blur-xl rounded-[24px] p-2 pl-4 flex items-center justify-between border border-white/[0.08] shadow-2xl relative"
+                      class="bg-[#1C1C1E] rounded-xl p-2 pl-4 flex items-center justify-between border border-white/[0.08] shadow-2xl relative"
                     >
                       <div
                         class="flex items-center gap-2 text-[#8E8E93] flex-1"
@@ -1152,7 +1140,7 @@
                         class="w-10 h-10 rounded-full bg-[#E85D00] flex items-center justify-center shadow-md flex-shrink-0 relative overflow-hidden group hover:scale-105 transition-transform disabled:opacity-50"
                       >
                         <div
-                          class="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-50"
+                          class="hidden"
                         ></div>
                         <span x-show="!generatingBrief"
                           ><iconify-icon
@@ -1221,13 +1209,13 @@
                     <div
                       class="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3 bg-[#1C1C1E]/40"
                     >
-                      <div class="w-1 h-5 bg-[#FF8A00] rounded-full"></div>
+                      <div class="w-1 h-5 bg-[#E85D00] rounded-full"></div>
                       <span
                         class="text-base font-medium text-white tracking-tight"
                         x-text="project"
                       ></span>
                       <span
-                        class="px-2 py-0.5 rounded text-[10px] font-medium bg-[#FF8A00]/10 text-[#FF8A00] ml-auto"
+                        class="px-2 py-0.5 rounded text-[10px] font-medium bg-[#E85D00]/10 text-[#E85D00] ml-auto"
                         x-text="`${ideas.length} idées`"
                       ></span>
                     </div>
@@ -1260,7 +1248,7 @@
                                 :href="idea.url"
                                 target="_blank"
                                 x-show="idea.url"
-                                class="text-[10px] text-[#FF8A00] hover:underline flex items-center gap-0.5"
+                                class="text-[10px] text-[#E85D00] hover:underline flex items-center gap-0.5"
                               >
                                 <iconify-icon
                                   icon="solar:arrow-right-up-linear"
@@ -1292,7 +1280,7 @@
               >
                 <div class="relative z-10 space-y-4">
                   <div class="flex items-center gap-2 mb-1">
-                    <div class="w-1 h-4 bg-[#FF8A00] rounded-full"></div>
+                    <div class="w-1 h-4 bg-[#E85D00] rounded-full"></div>
                     <h2 class="text-lg font-medium tracking-tight text-white">
                       Générateur de brief
                     </h2>
@@ -1345,7 +1333,7 @@
                   class="rounded-2xl border border-white/[0.06] bg-[#151517] overflow-hidden"
                 >
                   <div
-                    class="px-6 py-5 border-b border-white/[0.05] bg-[#FF8A00]/5"
+                    class="px-6 py-5 border-b border-white/[0.05] bg-[#E85D00]/5"
                   >
                     <h3
                       class="text-xl font-medium text-white tracking-tight"
@@ -1360,7 +1348,7 @@
                     <template x-if="currentBrief.tech_stack_suggestion">
                       <div>
                         <div
-                          class="text-xs font-medium text-[#FF8A00] uppercase tracking-widest mb-1"
+                          class="text-xs font-medium text-[#E85D00] uppercase tracking-widest mb-1"
                         >
                           Stack
                         </div>
@@ -1408,7 +1396,7 @@
                               <a
                                 :href="res.url"
                                 target="_blank"
-                                class="text-[#FF8A00] hover:underline truncate max-w-[200px]"
+                                class="text-[#E85D00] hover:underline truncate max-w-[200px]"
                                 x-text="res.title"
                               ></a>
                               <span
@@ -1475,7 +1463,7 @@
                       </div>
                       <div class="relative">
                         <pre
-                          class="text-xs text-[#D1D1D6] font-mono bg-[#000000] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
+                          class="text-xs text-[#D1D1D6] font-mono bg-[#0A0A0C] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
                           x-text="briefPromptTab === 'cursor' ? currentBrief.cursor_prompt : currentBrief.claude_code_prompt"
                         ></pre>
                         <button
@@ -1492,9 +1480,9 @@
                       <button
                         type="button"
                         @click="openBriefChat(briefs.find(b => b.data?.project_name === currentBrief?.project_name) || briefs[0])"
-                        class="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-[#FF8A00]/20 to-[#E62E00]/20 border border-[#FF8A00]/30 hover:border-[#FF8A00]/50 flex items-center gap-2 transition-all"
+                        class="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#E85D00]/15 border border-[#E85D00]/30 hover:border-[#E85D00]/50 flex items-center gap-2 transition-all"
                       >
-                        <iconify-icon icon="solar:chat-round-dots-linear" class="text-lg text-[#FF8A00]"></iconify-icon>
+                        <iconify-icon icon="solar:chat-round-dots-linear" class="text-lg text-[#E85D00]"></iconify-icon>
                         Discuter & améliorer ce brief
                       </button>
                     </div>
@@ -1562,7 +1550,7 @@
                         </template>
                         <template x-if="brief.data.tech_stack_suggestion">
                           <div>
-                            <div class="text-xs font-medium text-[#FF8A00] uppercase tracking-widest mb-1">Stack</div>
+                            <div class="text-xs font-medium text-[#E85D00] uppercase tracking-widest mb-1">Stack</div>
                             <p class="text-sm text-[#D1D1D6] font-light" x-text="brief.data.tech_stack_suggestion"></p>
                           </div>
                         </template>
@@ -1581,7 +1569,7 @@
                                   <span class="px-1.5 py-0.5 rounded text-[10px] font-medium uppercase"
                                     :class="res.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FFCC00]/10 text-[#FFCC00]'"
                                     x-text="res.verdict"></span>
-                                  <a :href="res.url" target="_blank" class="text-[#FF8A00] hover:underline truncate max-w-[200px]" x-text="res.title"></a>
+                                  <a :href="res.url" target="_blank" class="text-[#E85D00] hover:underline truncate max-w-[200px]" x-text="res.title"></a>
                                   <span class="text-xs text-[#6b6b6b] truncate" x-text="res.why"></span>
                                 </div>
                               </template>
@@ -1614,7 +1602,7 @@
                               class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Claude Code</button>
                           </div>
                           <div class="relative">
-                            <pre class="text-xs text-[#D1D1D6] font-mono bg-[#000000] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
+                            <pre class="text-xs text-[#D1D1D6] font-mono bg-[#0A0A0C] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
                               x-text="promptTab === 'cursor' ? brief.data.cursor_prompt : brief.data.claude_code_prompt"></pre>
                             <button type="button"
                               @click="copyToClipboard(promptTab === 'cursor' ? brief.data.cursor_prompt : brief.data.claude_code_prompt)"
@@ -1623,7 +1611,7 @@
                         </div>
                         <div class="flex gap-2 flex-wrap pt-2">
                           <button type="button" @click="openBriefChat(brief)"
-                            class="px-3 py-1.5 rounded-lg text-xs bg-[#FF8A00]/10 border border-[#FF8A00]/20 text-[#FF8A00] hover:bg-[#FF8A00]/20 transition-colors flex items-center gap-1.5">
+                            class="px-3 py-1.5 rounded-lg text-xs bg-[#E85D00]/10 border border-[#E85D00]/20 text-[#E85D00] hover:bg-[#E85D00]/20 transition-colors flex items-center gap-1.5">
                             <iconify-icon icon="solar:chat-round-dots-linear" class="text-sm"></iconify-icon>
                             Discuter & améliorer
                           </button>
@@ -1653,7 +1641,7 @@
     >
       <!-- Chat Header -->
       <div
-        class="h-14 border-b border-white/[0.05] flex items-center justify-between px-5 bg-[#0a0a0c]/80 backdrop-blur-xl shrink-0"
+        class="h-14 border-b border-white/[0.05] flex items-center justify-between px-5 bg-[#0a0a0c] shrink-0"
       >
         <div class="flex items-center gap-2.5">
           <div
@@ -1708,7 +1696,7 @@
             </div>
             <div
               class="max-w-[85%] rounded-2xl px-4 py-3 text-sm font-light leading-relaxed"
-              :class="msg.role === 'user' ? 'bg-[#FF8A00]/15 text-[#E5E5EA] rounded-br-sm' : 'bg-[#1C1C1E] text-[#D1D1D6] border border-white/[0.05] rounded-tl-sm'"
+              :class="msg.role === 'user' ? 'bg-[#E85D00]/15 text-[#E5E5EA] rounded-br-sm' : 'bg-[#1C1C1E] text-[#D1D1D6] border border-white/[0.05] rounded-tl-sm'"
             >
               <div x-html="renderChat(msg.content)"></div>
             </div>
@@ -1729,15 +1717,15 @@
             class="bg-[#1C1C1E] border border-white/[0.05] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5"
           >
             <span
-              class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce"
+              class="w-1.5 h-1.5 bg-[#E85D00] rounded-full animate-bounce"
               style="animation-delay: 0ms"
             ></span>
             <span
-              class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce"
+              class="w-1.5 h-1.5 bg-[#E85D00] rounded-full animate-bounce"
               style="animation-delay: 150ms"
             ></span>
             <span
-              class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce"
+              class="w-1.5 h-1.5 bg-[#E85D00] rounded-full animate-bounce"
               style="animation-delay: 300ms"
             ></span>
           </div>
@@ -1746,7 +1734,7 @@
 
       <!-- Chat Input -->
       <div
-        class="border-t border-white/[0.05] p-4 bg-[#0a0a0c]/80 backdrop-blur-xl shrink-0"
+        class="border-t border-white/[0.05] p-4 bg-[#0a0a0c] shrink-0"
       >
         <div class="flex gap-2 mb-2 overflow-x-auto no-scrollbar">
           <template x-if="chatMode === 'bookmark'">
@@ -1762,7 +1750,7 @@
           <template x-if="chatMode === 'brief'">
             <div class="flex gap-2">
               <button type="button" @click="chatInput = 'Cherche dans mes bookmarks des ressources pertinentes pour ce brief'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#FF8A00] bg-[#FF8A00]/10 border border-[#FF8A00]/20 hover:bg-[#FF8A00]/20 transition-colors whitespace-nowrap">Chercher ressources</button>
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#E85D00] bg-[#E85D00]/10 border border-[#E85D00]/20 hover:bg-[#E85D00]/20 transition-colors whitespace-nowrap">Chercher ressources</button>
               <button type="button" @click="chatInput = 'Propose une stack alternative et mets à jour le brief'; sendChat()"
                 class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Stack alternative</button>
               <button type="button" @click="chatInput = 'Améliore le prompt Cursor pour le rendre plus détaillé'; sendChat()"
@@ -1805,7 +1793,7 @@
 
     <!-- ═══ Mobile Bottom Navigation ═══ -->
     <nav
-      class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1C1C1E]/90 backdrop-blur-xl border-t border-white/5 pb-[env(safe-area-inset-bottom)] pt-2 px-6 flex justify-between items-center z-50 h-[72px]"
+      class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1C1C1E] border-t border-white/5 pb-[env(safe-area-inset-bottom)] pt-2 px-6 flex justify-between items-center z-50 h-[72px]"
     >
       <button
         type="button"
@@ -1834,7 +1822,7 @@
       <button
         type="button"
         @click="showAddPanel = true; tab = 'bookmarks'"
-        class="w-12 h-12 rounded-full bg-[#E85D00] flex items-center justify-center shadow-md -mt-6 border-4 border-[#000000]"
+        class="w-12 h-12 rounded-full bg-[#E85D00] flex items-center justify-center shadow-md -mt-6 border-4 border-[#0A0A0C]"
       >
         <iconify-icon
           icon="solar:magic-stick-3-bold"
@@ -2434,7 +2422,7 @@
               )
               .replace(
                 /`(.+?)`/g,
-                '<code class="px-1 py-0.5 rounded bg-white/10 text-[#FF8A00] text-xs">$1</code>',
+                '<code class="px-1 py-0.5 rounded bg-white/10 text-[#E85D00] text-xs">$1</code>',
               )
               .replace(/\n/g, "<br>");
           },
