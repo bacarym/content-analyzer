@@ -290,32 +290,6 @@ def debug_analyses(tweet_id: str = ""):
 
 
 
-@app.get("/api/debug/exa")
-async def debug_exa(url: str = "https://en.wikipedia.org/wiki/Main_Page"):
-    """Test Exa crawl directly."""
-    if not EXA_KEY:
-        return {"error": "EXA_API_KEY not set"}
-    import httpx as _httpx
-    try:
-        async with _httpx.AsyncClient() as client:
-            r = await client.post("https://api.exa.ai/contents",
-                                  headers={"x-api-key": EXA_KEY, "Content-Type": "application/json"},
-                                  json={"urls": [url], "text": {"maxCharacters": 500},
-                                        "livecrawl": "always", "livecrawlTimeout": 10000},
-                                  timeout=20)
-            data = r.json() if r.status_code == 200 else {}
-            return {
-                "status_code": r.status_code,
-                "exa_key_prefix": EXA_KEY[:10] + "...",
-                "results_count": len(data.get("results", [])),
-                "statuses": data.get("statuses", []),
-                "text_preview": (data.get("results", [{}])[0].get("text", ""))[:200] if data.get("results") else None,
-                "raw_keys": list(data.keys()) if data else None,
-                "error_body": r.text[:300] if r.status_code != 200 else None,
-            }
-    except Exception as e:
-        return {"error": str(e)}
-
 
 @app.get("/api/debug/anthropic")
 async def debug_anthropic():
@@ -561,25 +535,15 @@ async def api_analyze(
                 else:
                     # Try Exa crawl first (handles Medium, paywalls, JS-rendered pages)
                     content_text = ""
-                    fetch_debug = []
                     if EXA_KEY:
                         import httpx as _httpx
                         async with _httpx.AsyncClient() as _client:
                             content_text = await _exa_crawl_async(url, EXA_KEY, _client, max_chars=6000, timeout=15)
-                        if content_text:
-                            fetch_debug.append(f"exa_ok:{len(content_text)}")
-                        else:
-                            fetch_debug.append("exa_fail")
-                    else:
-                        fetch_debug.append("no_exa_key")
                     # Fallback to direct fetch
                     if not content_text:
                         web = fetch_web_content(url)
                         if not web.get("error"):
                             content_text = web.get("content", "")
-                            fetch_debug.append(f"fetch_ok:{len(content_text)}")
-                        else:
-                            fetch_debug.append(f"fetch_err:{web['error'][:80]}")
                     if content_text:
                         fid = "web_" + hashlib.md5(url.encode()).hexdigest()[:12]
                         domain = url.split("/")[2] if len(url.split("/")) > 2 else url
@@ -592,8 +556,7 @@ async def api_analyze(
                         a = await _analyze_and_save(bm)
                         results.append({"url": url, "verdict": a.get("verdict", ""), "summary": a.get("summary", "")})
                     else:
-                        print(f"[FETCH_FAIL] {url}: {fetch_debug}")
-                        results.append({"url": url, "error": f"Impossible de récupérer le contenu ({', '.join(fetch_debug)})"})
+                        results.append({"url": url, "error": "Impossible de récupérer le contenu de cette URL"})
             elif item[0] == "file":
                 fname, content = item[1], item[2]
                 fid = "file_" + hashlib.md5(content[:500].encode()).hexdigest()[:12]

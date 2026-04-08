@@ -407,19 +407,15 @@ async def _exa_crawl_async(url: str, exa_key: str,
                                     "livecrawl": "always",
                                     "livecrawlTimeout": 10000},
                               timeout=timeout)
-        print(f"[EXA_CRAWL] {url}: HTTP {r.status_code}")
         if r.status_code == 200:
             data = r.json()
             results = data.get("results", [])
-            statuses = data.get("statuses", [])
-            print(f"[EXA_CRAWL] results={len(results)}, statuses={statuses}")
             if results:
                 text = results[0].get("text", "")
                 if text:
                     return text
-                print(f"[EXA_CRAWL] result keys={list(results[0].keys())}, text_len={len(text)}")
         else:
-            print(f"[EXA_CRAWL] {url}: HTTP {r.status_code} {r.text[:300]}")
+            print(f"[EXA_CRAWL] {url}: HTTP {r.status_code}")
     except Exception as e:
         print(f"[EXA_CRAWL] {url}: {e}")
     return ""
