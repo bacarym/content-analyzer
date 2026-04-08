@@ -328,9 +328,18 @@ def _parse_metrics(raw):
     return {}
 
 
+class APIOverloadedError(Exception):
+    pass
+
+
 async def _analyze_and_save(bm: dict) -> dict:
-    a = await analyze_single_async(content=bm["content"], author=bm.get("author_username", ""),
-                                   api_key=ANTHROPIC_KEY, url=bm.get("url", ""), exa_key=EXA_KEY)
+    try:
+        a = await analyze_single_async(content=bm["content"], author=bm.get("author_username", ""),
+                                       api_key=ANTHROPIC_KEY, url=bm.get("url", ""), exa_key=EXA_KEY)
+    except Exception as e:
+        if "overloaded" in str(e).lower() or "529" in str(e):
+            raise APIOverloadedError("overloaded")
+        raise
     try:
         save_analysis(tweet_id=bm["tweet_id"], tags=a.get("tags", []),
                       summary=a.get("summary", ""), claims_check=a.get("claims_check", ""),
@@ -542,6 +551,9 @@ async def api_analyze(
                 bm = {"tweet_id": fid, "content": content[:8000], "author_username": fname, "url": ""}
                 a = await _analyze_and_save(bm)
                 results.append({"file": fname, "verdict": a.get("verdict", ""), "summary": a.get("summary", "")})
+        except APIOverloadedError:
+            results.append({"error": "overloaded"})
+            break
         except Exception as e:
             results.append({"error": str(e)})
     return {"results": results}
@@ -564,6 +576,8 @@ async def api_reanalyze(tweet_id: str):
     try:
         a = await _analyze_and_save(bm)
         return {"verdict": a.get("verdict"), "summary": a.get("summary")}
+    except APIOverloadedError:
+        return JSONResponse({"error": "overloaded"}, status_code=529)
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
@@ -593,6 +607,8 @@ async def api_reanalyze_batch(tweet_ids: list[str]):
             try:
                 a = await _analyze_and_save(bm)
                 return {"tweet_id": tid, "verdict": a.get("verdict"), "summary": a.get("summary", "")}
+            except APIOverloadedError:
+                return {"tweet_id": tid, "error": "overloaded"}
             except Exception as e:
                 print(f"[BATCH] {tid} failed: {e}")
                 return {"tweet_id": tid, "error": str(e)}

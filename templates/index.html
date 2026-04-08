@@ -2274,10 +2274,12 @@
                       })),
                   ),
                 );
+                let overloaded = false;
                 for (const d of responses) {
                   const results = d.results || [];
                   done += results.filter((r) => r.verdict).length;
                   errors += results.filter((r) => r.error).length;
+                  if (results.some((r) => r.error === "overloaded")) overloaded = true;
                   results
                     .filter((r) => r.error)
                     .forEach((r) =>
@@ -2285,8 +2287,11 @@
                     );
                 }
                 this.analyzeProgress = `${done + errors}/${total}`;
+                if (overloaded) break;
               }
-              if (errors > 0) {
+              if (overloaded) {
+                this.showToast("L'API Claude est surchargée — réessaie dans quelques minutes", "error");
+              } else if (errors > 0) {
                 this.showToast(`${done} OK, ${errors} erreur(s)`, "error");
               } else {
                 this.showToast(`${done} analyses terminées`);
@@ -2302,11 +2307,18 @@
           async reanalyze(tweetId) {
             this.analyzing = true;
             try {
-              await fetch(`/api/reanalyze/${tweetId}`, { method: "POST" });
-              this.showToast("Re-analyse terminée");
+              const r = await fetch(`/api/reanalyze/${tweetId}`, { method: "POST" });
+              if (r.status === 529) {
+                this.showToast("L'API Claude est surchargée — réessaie dans quelques minutes", "error");
+              } else if (r.ok) {
+                this.showToast("Re-analyse terminée");
+              } else {
+                const d = await r.json().catch(() => ({}));
+                this.showToast(d.error || "Erreur analyse", "error");
+              }
               await this.loadData();
             } catch (e) {
-              this.showToast("Erreur", "error");
+              this.showToast("Erreur réseau", "error");
             } finally {
               this.analyzing = false;
             }
@@ -2338,12 +2350,17 @@
                 this.showToast(d.error, "error");
               } else {
                 const n = d.results?.length || 0;
+                const overloaded = (d.results || []).some((r) => r.error === "overloaded");
                 const errors = (d.results || []).filter((r) => r.error).length;
-                this.showToast(
-                  errors
-                    ? `${n - errors}/${n} ok, ${errors} erreur(s)`
-                    : `${n} analyse(s) OK`,
-                );
+                if (overloaded) {
+                  this.showToast("L'API Claude est surchargée — réessaie dans quelques minutes", "error");
+                } else {
+                  this.showToast(
+                    errors
+                      ? `${n - errors}/${n} ok, ${errors} erreur(s)`
+                      : `${n} analyse(s) OK`,
+                  );
+                }
                 this.addUrls = "";
                 this.addFiles = null;
                 await this.loadData();
