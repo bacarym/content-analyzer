@@ -2354,12 +2354,11 @@
                 const errors = (d.results || []).filter((r) => r.error).length;
                 if (overloaded) {
                   this.showToast("L'API Claude est surchargée — réessaie dans quelques minutes", "error");
+                } else if (errors) {
+                  const errMsg = (d.results || []).find((r) => r.error)?.error || "Erreur inconnue";
+                  this.showToast(errMsg, "error");
                 } else {
-                  this.showToast(
-                    errors
-                      ? `${n - errors}/${n} ok, ${errors} erreur(s)`
-                      : `${n} analyse(s) OK`,
-                  );
+                  this.showToast(`${n} analyse(s) OK`);
                 }
                 this.addUrls = "";
                 this.addFiles = null;
