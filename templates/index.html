@@ -101,6 +101,9 @@
     class="bg-[#0A0A0C] text-[#E5E5EA] antialiased selection:bg-[#E85D00]/30 selection:text-white h-screen overflow-hidden flex"
     x-data="app()"
     x-init="init()"
+    @keydown.escape.window="if (chatOpen) { chatOpen = false } else if (selectedBm) { selectedBm = null }"
+    @keydown.slash.window.prevent="if (!chatOpen && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { $refs.searchInput?.focus() }"
+    @keydown.window="if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || chatOpen) return; if ($event.key === 'j') selectNext(); if ($event.key === 'k') selectPrev();"
   >
     <!-- ═══ Sidebar (desktop) ═══ -->
     <aside
@@ -410,7 +413,8 @@
               <input
                 type="text"
                 x-model="filter.search"
-                placeholder="Rechercher..."
+                x-ref="searchInput"
+                placeholder="Rechercher...  ( / )"
                 class="bg-transparent border-none outline-none text-xs text-[#E5E5EA] placeholder-[#6b6b6b] w-full font-light"
               />
             </div>
@@ -604,7 +608,21 @@
               ></span>
             </div>
           </div>
-          <div class="flex flex-col">
+          <!-- Skeleton loading -->
+          <div x-show="loading" class="flex flex-col">
+            <template x-for="i in 6" :key="i">
+              <div class="p-5 border-b border-white/[0.03] animate-pulse">
+                <div class="flex justify-between items-start mb-3">
+                  <div class="h-3 bg-white/[0.06] rounded w-32"></div>
+                  <div class="h-4 bg-white/[0.06] rounded w-16"></div>
+                </div>
+                <div class="h-4 bg-white/[0.06] rounded w-3/4 mb-2"></div>
+                <div class="h-3 bg-white/[0.04] rounded w-full mb-1"></div>
+                <div class="h-3 bg-white/[0.04] rounded w-2/3"></div>
+              </div>
+            </template>
+          </div>
+          <div x-show="!loading" class="flex flex-col">
             <template x-for="bm in filtered" :key="bm.tweet_id">
               <div
                 class="p-5 border-b border-white/[0.03] cursor-pointer relative overflow-hidden transition-colors"
@@ -666,6 +684,7 @@
               </p>
             </div>
           </div>
+          </div>
         </div>
       </section>
 
@@ -687,6 +706,11 @@
             class="text-lg shrink-0 mt-0.5"
           ></iconify-icon>
           <span x-text="toast" class="font-light text-[#E5E5EA]"></span>
+          <button
+            x-show="_toastRetry"
+            @click="_toastRetry && _toastRetry(); toast = ''"
+            class="ml-2 px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white hover:bg-white/20 transition-colors shrink-0"
+          >Retry</button>
         </div>
 
         <!-- ── Bookmarks Detail View ── -->
@@ -741,9 +765,21 @@
                 </div>
 
                 <!-- Returning user: pick a content -->
-                <p x-show="counts.signal + counts.mixed + counts.noise > 0" class="text-sm text-[#8E8E93] text-center">
-                  Sélectionne un contenu dans la liste
-                </p>
+                <div x-show="counts.signal + counts.mixed + counts.noise > 0" class="text-center space-y-4">
+                  <p class="text-sm text-[#8E8E93]">
+                    Sélectionne un contenu dans la liste
+                  </p>
+                  <div class="flex justify-center gap-4 text-[11px] text-[#6b6b6b]">
+                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span> Signal = haute valeur</span>
+                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#FFCC00]"></span> Mixed = avec réserves</span>
+                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#FF3B30]"></span> Noise = à ignorer</span>
+                  </div>
+                  <p class="text-[11px] text-[#6b6b6b]">
+                    <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">/</kbd> rechercher
+                    · <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">j</kbd><kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">k</kbd> naviguer
+                    · <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">esc</kbd> fermer
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1858,6 +1894,7 @@
       function app() {
         return {
           tab: "bookmarks",
+          loading: true,
           bookmarks: [],
           stats: {},
           counts: {},
@@ -1871,6 +1908,7 @@
           addFiles: null,
           toast: "",
           toastType: "ok",
+          _toastRetry: null,
           adHocLoading: false,
           sortBy: "created_desc",
           filter: { verdict: "", tag: "", search: "" },
@@ -1941,6 +1979,7 @@
               }
             }
             await this.loadData();
+            this.loading = false;
             await this.loadBriefs();
           },
 
@@ -2157,10 +2196,25 @@
             return groups;
           },
 
-          showToast(msg, type = "ok") {
+          selectNext() {
+            const list = this.filtered;
+            if (!list.length) return;
+            const idx = this.selectedBm ? list.findIndex(b => b.tweet_id === this.selectedBm.tweet_id) : -1;
+            this.selectedBm = list[Math.min(idx + 1, list.length - 1)];
+          },
+
+          selectPrev() {
+            const list = this.filtered;
+            if (!list.length) return;
+            const idx = this.selectedBm ? list.findIndex(b => b.tweet_id === this.selectedBm.tweet_id) : 1;
+            this.selectedBm = list[Math.max(idx - 1, 0)];
+          },
+
+          showToast(msg, type = "ok", retryFn = null) {
             this.toast = msg;
             this.toastType = type;
-            setTimeout(() => (this.toast = ""), type === "error" ? 6000 : 3000);
+            this._toastRetry = retryFn;
+            setTimeout(() => { this.toast = ""; this._toastRetry = null; }, type === "error" ? 6000 : 3000);
           },
 
           async connectX() {
@@ -2248,7 +2302,7 @@
                 if (overloaded) break;
               }
               if (overloaded) {
-                this.showToast("L'API Claude est surchargée — réessaie dans quelques minutes", "error");
+                this.showToast("L'API Claude est surchargée", "error");
               } else if (errors > 0) {
                 this.showToast(`${done} OK, ${errors} erreur(s)`, "error");
               } else {
@@ -2267,7 +2321,7 @@
             try {
               const r = await fetch(`/api/reanalyze/${tweetId}`, { method: "POST" });
               if (r.status === 529) {
-                this.showToast("L'API Claude est surchargée — réessaie dans quelques minutes", "error");
+                this.showToast("L'API Claude est surchargée", "error", () => this.reanalyze(tweetId));
               } else if (r.ok) {
                 this.showToast("Re-analyse terminée");
               } else {
@@ -2313,7 +2367,7 @@
                 const overloaded = (d.results || []).some((r) => r.error === "overloaded");
                 const errors = (d.results || []).filter((r) => r.error).length;
                 if (overloaded) {
-                  this.showToast("L'API Claude est surchargée — réessaie dans quelques minutes", "error");
+                  this.showToast("L'API Claude est surchargée", "error", () => this.submitAdHoc());
                 } else if (errors) {
                   const errMsg = (d.results || []).find((r) => r.error)?.error || "Erreur inconnue";
                   this.showToast(errMsg, "error");
