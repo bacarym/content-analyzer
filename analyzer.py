@@ -396,20 +396,21 @@ async def _exa_search_async(query: str, exa_key: str, client: httpx.AsyncClient,
 
 async def _exa_crawl_async(url: str, exa_key: str,
                             client: httpx.AsyncClient,
-                            max_chars: int = 2500) -> str:
+                            max_chars: int = 2500,
+                            timeout: int = 3) -> str:
     try:
         r = await client.post(f"{EXA_API_URL}/contents",
                               headers={"x-api-key": exa_key,
                                        "Content-Type": "application/json"},
                               json={"urls": [url],
                                     "text": {"maxCharacters": max_chars}},
-                              timeout=3)
+                              timeout=timeout)
         if r.status_code == 200:
             results = r.json().get("results", [])
             if results:
                 return results[0].get("text", "")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[EXA_CRAWL] {url}: {e}")
     return ""
 
 

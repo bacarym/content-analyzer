@@ -537,7 +537,7 @@ async def api_analyze(
                     if EXA_KEY:
                         import httpx as _httpx
                         async with _httpx.AsyncClient() as _client:
-                            content_text = await _exa_crawl_async(url, EXA_KEY, _client, max_chars=6000)
+                            content_text = await _exa_crawl_async(url, EXA_KEY, _client, max_chars=6000, timeout=15)
                     # Fallback to direct fetch
                     if not content_text:
                         web = fetch_web_content(url)
