@@ -21,6 +21,7 @@ from database import (
 from analyzer import (
     analyze_single_async, generate_markdown_report, fetch_web_content,
     generate_brief_async, chat_about_content_async, chat_about_brief_async,
+    _exa_crawl_async,
 )
 from x_api import (
     extract_tweet_id, fetch_tweet_by_id, fetch_tweet_via_fxtwitter,
@@ -531,17 +532,30 @@ async def api_analyze(
                         a = await _analyze_and_save(tweet)
                         results.append({"url": url, "verdict": a.get("verdict", ""), "summary": a.get("summary", "")})
                 else:
-                    web = fetch_web_content(url)
-                    if not web.get("error"):
+                    # Try Exa crawl first (handles Medium, paywalls, JS-rendered pages)
+                    content_text = ""
+                    if EXA_KEY:
+                        import httpx as _httpx
+                        async with _httpx.AsyncClient() as _client:
+                            content_text = await _exa_crawl_async(url, EXA_KEY, _client, max_chars=6000)
+                    # Fallback to direct fetch
+                    if not content_text:
+                        web = fetch_web_content(url)
+                        if not web.get("error"):
+                            content_text = web.get("content", "")
+                    if content_text:
                         fid = "web_" + hashlib.md5(url.encode()).hexdigest()[:12]
-                        upsert_bookmark(tweet_id=fid, author_username=web.get("author_username", ""),
-                                        author_name=web.get("author_name", ""), content=web.get("content", ""),
+                        domain = url.split("/")[2] if len(url.split("/")) > 2 else url
+                        upsert_bookmark(tweet_id=fid, author_username=domain,
+                                        author_name=domain, content=content_text,
                                         created_at=datetime.utcnow().isoformat(), url=url,
-                                        metrics=web.get("metrics", {}))
-                        bm = {"tweet_id": fid, "content": web["content"],
-                              "author_username": web.get("author_username", ""), "url": url}
+                                        metrics={})
+                        bm = {"tweet_id": fid, "content": content_text,
+                              "author_username": domain, "url": url}
                         a = await _analyze_and_save(bm)
                         results.append({"url": url, "verdict": a.get("verdict", ""), "summary": a.get("summary", "")})
+                    else:
+                        results.append({"url": url, "error": "Impossible de récupérer le contenu de cette URL"})
             elif item[0] == "file":
                 fname, content = item[1], item[2]
                 fid = "file_" + hashlib.md5(content[:500].encode()).hexdigest()[:12]
