@@ -786,7 +786,7 @@
     <div class="flex-1 overflow-y-auto no-scrollbar px-5 py-4 space-y-4" x-ref="chatScroll">
       <!-- System context note -->
       <div class="text-center py-3">
-        <span class="text-[10px] text-[#6b6b6b] bg-[#1C1C1E] px-3 py-1 rounded-full">Claude a le contexte complet de cette analyse</span>
+        <span class="text-[10px] text-[#6b6b6b] bg-[#1C1C1E] px-3 py-1 rounded-full">Claude a le contexte + accès recherche web, deep research & Reddit</span>
       </div>
 
       <template x-for="(msg, i) in chatMessages" :key="i">
@@ -801,28 +801,35 @@
         </div>
       </template>
 
-      <!-- Typing indicator -->
+      <!-- Typing / Research indicator -->
       <div x-show="chatLoading" class="flex gap-3">
         <div class="w-6 h-6 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#E62E00] flex items-center justify-center shrink-0 mt-1">
           <iconify-icon icon="solar:magic-stick-3-bold" class="text-white text-[10px]"></iconify-icon>
         </div>
-        <div class="bg-[#1C1C1E] border border-white/[0.05] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:0ms"></span>
-          <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:150ms"></span>
-          <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:300ms"></span>
+        <div class="bg-[#1C1C1E] border border-white/[0.05] rounded-2xl rounded-tl-sm px-4 py-3">
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:0ms"></span>
+              <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:150ms"></span>
+              <span class="w-1.5 h-1.5 bg-[#FF8A00] rounded-full animate-bounce" style="animation-delay:300ms"></span>
+            </div>
+            <span class="text-[10px] text-[#8E8E93] font-light" x-text="chatStatusText || 'Réflexion...'"></span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Chat Input -->
     <div class="border-t border-white/[0.05] p-4 bg-[#0a0a0c]/80 backdrop-blur-xl shrink-0">
-      <div class="flex gap-2 mb-2">
+      <div class="flex gap-2 mb-2 overflow-x-auto no-scrollbar">
         <button type="button" @click="chatInput = 'Quelles sont les alternatives ?'; sendChat()"
                 class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Alternatives ?</button>
         <button type="button" @click="chatInput = 'Comment intégrer ça dans mes projets ?'; sendChat()"
                 class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Pour mes projets ?</button>
-        <button type="button" @click="chatInput = 'Fais une recherche approfondie sur ce sujet'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Recherche +</button>
+        <button type="button" @click="chatInput = 'Fais une recherche approfondie sur ce sujet avec articles, Reddit, HN et tweets'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#FF8A00]/70 bg-[#FF8A00]/10 border border-[#FF8A00]/20 hover:bg-[#FF8A00]/15 transition-colors whitespace-nowrap">Deep Research</button>
+        <button type="button" @click="chatInput = 'Cherche les discussions Reddit sur ce sujet — avis, retours, opinions de la communauté'; sendChat()"
+                class="px-2.5 py-1 rounded-full text-[10px] text-[#FF6B35]/70 bg-[#FF6B35]/10 border border-[#FF6B35]/20 hover:bg-[#FF6B35]/15 transition-colors whitespace-nowrap">Reddit</button>
       </div>
       <div class="flex items-center gap-2">
         <input type="text" x-model="chatInput" @keydown.enter.prevent="sendChat()" placeholder="Pose une question sur ce contenu..."
@@ -900,6 +907,7 @@ function app() {
     chatMessages: [],
     chatInput: '',
     chatLoading: false,
+    chatStatusText: '',
 
     get allTags() {
       const tagMap = {};
@@ -1236,6 +1244,11 @@ function app() {
       this.chatMessages.push({ role: 'user', content: msg });
       this.chatInput = '';
       this.chatLoading = true;
+      const ml = msg.toLowerCase();
+      if (ml.includes('reddit')) this.chatStatusText = 'Crawl Reddit en cours...';
+      else if (ml.includes('deep research') || ml.includes('approfondie')) this.chatStatusText = 'Recherche multi-sources...';
+      else if (ml.includes('recherche') || ml.includes('search') || ml.includes('cherche')) this.chatStatusText = 'Recherche web...';
+      else this.chatStatusText = 'Réflexion...';
       this.$nextTick(() => this.scrollChat());
       try {
         const r = await fetch('/api/chat', {
@@ -1257,6 +1270,7 @@ function app() {
         this.chatMessages.push({ role: 'assistant', content: 'Erreur de connexion.' });
       } finally {
         this.chatLoading = false;
+        this.chatStatusText = '';
         this.$nextTick(() => this.scrollChat());
       }
     }
