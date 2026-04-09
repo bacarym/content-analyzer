@@ -875,20 +875,38 @@ Génère le brief et les prompts."""
 
 
 # ═══════════════════════════════════════
-# CHAT ABOUT CONTENT — async
+# CHAT ABOUT CONTENT — async with tool_use (Exa + Apify Reddit)
 # ═══════════════════════════════════════
+
+APIFY_REDDIT_ACTOR = "trudax~reddit-scraper"
 
 CHAT_SYSTEM_PROMPT = """<role>
 Tu es un assistant de recherche expert en tech, AI, crypto et business.
 Tu as accès au contenu complet d'un bookmark analysé et à son analyse détaillée.
+Tu as accès à des outils de recherche pour enrichir tes réponses avec des données en temps réel.
 Tu réponds en français, de manière concise et actionnable.
 </role>
+
+<tools_usage>
+Tu disposes de 3 outils de recherche. Utilise-les PROACTIVEMENT quand la question le nécessite :
+
+1. **exa_web_search** — Recherche web rapide (~2s). Utilise pour : vérifier des faits, trouver des infos récentes, docs, articles, actualités.
+2. **exa_deep_research** — Recherche approfondie multi-sources : articles + Reddit + HN + tweets + contre-arguments, le tout en parallèle (~10s). Utilise pour : analyse complète d'un sujet, technologie, ou produit.
+3. **reddit_search** — Crawl Reddit réel via Apify (~30-60s). Retourne les vrais posts + commentaires avec scores. Utilise pour : avis communautaires, retours d'expérience, opinions réelles, comparaisons, problèmes rapportés.
+
+Règles d'usage :
+- Question factuelle / vérification → exa_web_search
+- "Recherche approfondie" / "deep research" / analyse complète → exa_deep_research
+- Avis des gens / communauté / retours d'expérience / "reddit" → reddit_search
+- Tu peux combiner plusieurs outils si nécessaire
+- Si l'utilisateur demande explicitement une recherche, utilise TOUJOURS un outil
+- Après avoir reçu les résultats, synthétise-les clairement et cite tes sources (URL)
+</tools_usage>
 
 <rules>
 - Réponds en français
 - Sois concis mais complet (pas de blabla)
-- Si l'utilisateur demande une recherche complémentaire, utilise les résultats fournis
-- Cite tes sources quand tu te bases sur le dossier de recherche
+- Cite tes sources quand tu utilises les résultats de recherche
 - Formate avec **gras** pour les points clés et `code` pour les termes techniques
 - Pas de markdown headers (#), utilise **gras** pour structurer
 </rules>
@@ -901,10 +919,214 @@ L'utilisateur Bacary gère ces projets :
 - Groove Candy (music tech, distribution)
 </context>"""
 
+CHAT_TOOLS = [
+    {
+        "name": "exa_web_search",
+        "description": "Search the web for current information using Exa neural search. Returns recent articles, docs, tutorials, news. Fast (~2s).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Semantic search query — describe what you're looking for, not just keywords",
+                },
+                "num_results": {
+                    "type": "integer",
+                    "description": "Number of results (1-10, default 5)",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "exa_deep_research",
+        "description": "Launch comprehensive multi-source research in parallel: articles, Reddit, HackerNews, tweets, and counter-arguments. Use for thorough analysis. Takes ~10s.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Research topic or question to investigate across multiple sources",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "reddit_search",
+        "description": "Crawl Reddit for real community discussions via Apify. Returns actual posts with scores, comment counts, and top comments. Use for opinions, experiences, sentiment. Takes 30-60s.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for Reddit discussions",
+                },
+                "max_posts": {
+                    "type": "integer",
+                    "description": "Max posts to return (1-20, default 10)",
+                },
+                "sort": {
+                    "type": "string",
+                    "enum": ["relevance", "hot", "top", "new"],
+                    "description": "Sort order (default: relevance)",
+                },
+                "time_filter": {
+                    "type": "string",
+                    "enum": ["hour", "day", "week", "month", "year", "all"],
+                    "description": "Time range (default: month)",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+]
+
+
+async def _chat_deep_research(query: str, exa_key: str,
+                               client: httpx.AsyncClient) -> str:
+    """Multi-source parallel research for chat."""
+    articles_fut = _exa_search_async(query, exa_key, client, num_results=8)
+    reddit_fut = _exa_search_async(query, exa_key, client, num_results=5,
+                                    include_domains=["reddit.com"], light=True)
+    hn_fut = _exa_search_async(query, exa_key, client, num_results=5,
+                                include_domains=["news.ycombinator.com"], light=True)
+    tweets_fut = _exa_search_async(query, exa_key, client, num_results=3,
+                                    category="tweet", light=True)
+    counter_fut = _exa_search_async(
+        f"{query} criticism skepticism limitations problems",
+        exa_key, client, num_results=3, light=True)
+
+    all_results = await asyncio.gather(
+        articles_fut, reddit_fut, hn_fut, tweets_fut, counter_fut,
+        return_exceptions=True)
+
+    def _safe(idx):
+        r = all_results[idx]
+        return r if not isinstance(r, Exception) else []
+
+    sections = []
+    for idx, label, header in [
+        (0, "Article", "ARTICLES & BLOGS"),
+        (1, "Reddit", "DISCUSSIONS REDDIT"),
+        (2, "HackerNews", "DISCUSSIONS HACKERNEWS"),
+        (3, "Tweet", "TWEETS"),
+        (4, "Contre-argument", "CONTRE-ARGUMENTS"),
+    ]:
+        fmt = _format_exa_results(_safe(idx), label)
+        if fmt:
+            sections.append(f"=== {header} ===\n{fmt}")
+
+    return "\n\n".join(sections) if sections else "Aucun résultat trouvé."
+
+
+async def _chat_reddit_search(query: str, apify_key: str,
+                               client: httpx.AsyncClient,
+                               max_posts: int = 10, sort: str = "relevance",
+                               time_filter: str = "month") -> str:
+    """Search Reddit via Apify trudax/reddit-scraper (sync call)."""
+    url = f"https://api.apify.com/v2/acts/{APIFY_REDDIT_ACTOR}/run-sync-get-dataset-items"
+
+    payload = {
+        "searchMode": True,
+        "searches": [query],
+        "sort": sort,
+        "time": time_filter,
+        "searchType": "posts",
+        "maxItems": max_posts,
+        "maxPostCount": max_posts,
+        "maxComments": 5,
+        "skipComments": False,
+        "includeNSFW": False,
+        "proxy": {
+            "useApifyProxy": True,
+            "apifyProxyGroups": ["RESIDENTIAL"],
+        },
+    }
+
+    try:
+        r = await client.post(
+            url, json=payload,
+            headers={"Authorization": f"Bearer {apify_key}",
+                     "Content-Type": "application/json"},
+            params={"format": "json", "clean": "true"},
+            timeout=120)
+        if r.status_code != 200:
+            return f"Reddit search failed (HTTP {r.status_code})"
+
+        items = r.json()
+        if not items:
+            return "Aucune discussion Reddit trouvée."
+
+        posts = [it for it in items if it.get("dataType") == "post"]
+        comments_by_parent = {}
+        for it in items:
+            if it.get("dataType") == "comment":
+                comments_by_parent.setdefault(it.get("parentId", ""), []).append(it)
+
+        parts = []
+        for post in posts[:max_posts]:
+            title = post.get("title", "Sans titre")
+            body = (post.get("body") or "")[:500]
+            score = post.get("upVotes", 0)
+            n_comments = post.get("numberOfComments", 0)
+            sub = post.get("communityName", "")
+            post_url = post.get("url", "")
+
+            entry = f"**{title}** ({sub}, ↑{score}, {n_comments} comments)\n{post_url}"
+            if body:
+                entry += f"\n{body}"
+
+            post_comments = comments_by_parent.get(post.get("id", ""), [])
+            if post_comments:
+                top = sorted(post_comments, key=lambda c: c.get("upVotes", 0),
+                             reverse=True)[:3]
+                for c in top:
+                    c_body = (c.get("body") or "")[:200]
+                    c_score = c.get("upVotes", 0)
+                    if c_body:
+                        entry += f"\n  → [↑{c_score}] {c_body}"
+            parts.append(entry)
+
+        return "\n\n---\n\n".join(parts) if parts else "Aucune discussion Reddit trouvée."
+
+    except httpx.TimeoutException:
+        return "Reddit search timeout — essaie une requête plus spécifique."
+    except Exception as e:
+        return f"Reddit search error: {e}"
+
+
+async def _execute_chat_tool(tool_name: str, tool_input: dict,
+                              exa_key: str, apify_key: str,
+                              client: httpx.AsyncClient) -> str:
+    """Dispatch and execute a chat tool call."""
+    if tool_name == "exa_web_search":
+        query = tool_input.get("query", "")
+        num = min(tool_input.get("num_results", 5), 10)
+        results = await _exa_search_async(query, exa_key, client, num_results=num)
+        return _format_exa_results(results, "Web") if results else "Aucun résultat."
+
+    elif tool_name == "exa_deep_research":
+        return await _chat_deep_research(tool_input.get("query", ""), exa_key, client)
+
+    elif tool_name == "reddit_search":
+        if not apify_key:
+            return "Reddit search non disponible (clé Apify manquante)."
+        return await _chat_reddit_search(
+            query=tool_input.get("query", ""),
+            apify_key=apify_key,
+            client=client,
+            max_posts=min(tool_input.get("max_posts", 10), 20),
+            sort=tool_input.get("sort", "relevance"),
+            time_filter=tool_input.get("time_filter", "month"))
+
+    return f"Outil inconnu: {tool_name}"
+
 
 async def chat_about_content_async(message: str, bookmark: dict,
                                     analysis: dict, history: list,
-                                    api_key: str, exa_key: str = "") -> str:
+                                    api_key: str, exa_key: str = "",
+                                    apify_key: str = "") -> str:
     context_parts = []
     content = bookmark.get("content", "")
     author = bookmark.get("author_username", "")
@@ -928,18 +1150,6 @@ async def chat_about_content_async(message: str, bookmark: dict,
         if tags:
             context_parts.append(f"Tags: {tags}")
 
-    exa_supplement = ""
-    research_triggers = ("recherche", "cherche", "find", "search", "explore",
-                         "alternative", "compétiteur", "concurrent", "approfondi")
-    if exa_key and any(t in message.lower() for t in research_triggers):
-        async with httpx.AsyncClient() as client:
-            query = f"{message} {content[:200]}"
-            results = await _exa_search_async(query, exa_key, client,
-                                              num_results=5)
-        if results:
-            exa_supplement = _format_exa_results(
-                results, "Recherche complémentaire")
-
     context = "\n\n".join(context_parts)
 
     messages = []
@@ -954,20 +1164,70 @@ async def chat_about_content_async(message: str, bookmark: dict,
         if h.get("role") in ("user", "assistant"):
             messages.append({"role": h["role"], "content": h["content"]})
 
-    user_msg = message
-    if exa_supplement:
-        user_msg += (f"\n\n<recherche_web>\n{exa_supplement}\n</recherche_web>\n"
-                     "Utilise ces résultats de recherche pour enrichir ta réponse.")
-    messages.append({"role": "user", "content": user_msg})
+    messages.append({"role": "user", "content": message})
 
-    aclient = AsyncAnthropic(api_key=api_key)
-    response = await aclient.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        system=CHAT_SYSTEM_PROMPT,
-        messages=messages,
-    )
-    return response.content[0].text.strip()
+    # Build available tools based on configured keys
+    tools = []
+    if exa_key:
+        tools.append(CHAT_TOOLS[0])  # exa_web_search
+        tools.append(CHAT_TOOLS[1])  # exa_deep_research
+    if apify_key:
+        tools.append(CHAT_TOOLS[2])  # reddit_search
+
+    aclient = _get_anthropic_client(api_key)
+
+    # Agentic tool_use loop — max 3 rounds
+    response = None
+    for _ in range(3):
+        kwargs = {
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 4096,
+            "system": CHAT_SYSTEM_PROMPT,
+            "messages": messages,
+        }
+        if tools:
+            kwargs["tools"] = tools
+
+        response = await aclient.messages.create(**kwargs)
+
+        # Extract tool calls and text
+        tool_calls = [b for b in response.content if b.type == "tool_use"]
+        if not tool_calls:
+            break
+
+        # Add assistant message with tool calls
+        assistant_content = []
+        for block in response.content:
+            if block.type == "text":
+                assistant_content.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                assistant_content.append({
+                    "type": "tool_use", "id": block.id,
+                    "name": block.name, "input": block.input,
+                })
+        messages.append({"role": "assistant", "content": assistant_content})
+
+        # Execute all tool calls in parallel
+        async with httpx.AsyncClient() as client:
+            tasks = [
+                _execute_chat_tool(tc.name, tc.input, exa_key, apify_key, client)
+                for tc in tool_calls
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        tool_results = []
+        for tc, result in zip(tool_calls, results):
+            text = str(result) if isinstance(result, Exception) else result
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": tc.id,
+                "content": text,
+            })
+        messages.append({"role": "user", "content": tool_results})
+
+    # Extract final text response
+    text_parts = [b.text for b in response.content if b.type == "text"]
+    return "\n".join(text_parts).strip() or "Recherche terminée."
 
 
 # ═══════════════════════════════════════
