@@ -52,6 +52,7 @@ ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY") or _secrets.get("anthropic",
 X_BEARER = os.environ.get("X_BEARER_TOKEN") or _secrets.get("x_api", {}).get("bearer_token", "")
 X_CLIENT_ID = os.environ.get("X_CLIENT_ID") or _secrets.get("x_api", {}).get("client_id", "")
 EXA_KEY = os.environ.get("EXA_API_KEY") or _secrets.get("exa", {}).get("api_key", "")
+APIFY_TOKEN = os.environ.get("APIFY_API_TOKEN") or _secrets.get("apify", {}).get("api_token", "")
 
 _IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("DATABASE_URL"))
 
@@ -679,6 +680,7 @@ async def api_chat(request: Request):
             history=history,
             api_key=ANTHROPIC_KEY,
             exa_key=EXA_KEY,
+            apify_key=APIFY_TOKEN,
         )
         return {"reply": reply}
     except Exception as e:
