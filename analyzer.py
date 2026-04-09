@@ -244,8 +244,14 @@ def _build_search_query(content: str, author: str) -> str:
 def _format_exa_results(results: list[dict], source_label: str) -> str:
     if not results:
         return ""
+    # Check for error results
+    errors = [r["_error"] for r in results if "_error" in r]
+    if errors:
+        return f"[{source_label}] ERREUR: {errors[0]}"
     parts = []
     for r in results:
+        if "_error" in r:
+            continue
         title = r.get("title", "Sans titre")
         url = r.get("url", "")
         summary = r.get("summary", "")
@@ -386,9 +392,13 @@ async def _exa_search_async(query: str, exa_key: str, client: httpx.AsyncClient,
         r = await client.post(f"{EXA_API_URL}/search",
                               headers={"x-api-key": exa_key,
                                        "Content-Type": "application/json"},
-                              json=body, timeout=3)
+                              json=body, timeout=10)
         if r.status_code == 200:
             return r.json().get("results", [])
+        if r.status_code == 402:
+            return [{"_error": "Exa API: crédits épuisés — recharge sur dashboard.exa.ai"}]
+        if r.status_code >= 400:
+            return [{"_error": f"Exa API error (HTTP {r.status_code})"}]
     except Exception:
         pass
     return []
@@ -1176,16 +1186,18 @@ async def chat_about_content_async(message: str, bookmark: dict,
 
     aclient = _get_anthropic_client(api_key)
 
-    # Agentic tool_use loop — max 3 rounds
+    # Agentic tool_use loop — max 3 rounds, last round forces text response
+    max_rounds = 3
     response = None
-    for _ in range(3):
+    for round_num in range(max_rounds):
         kwargs = {
             "model": "claude-sonnet-4-6",
             "max_tokens": 4096,
             "system": CHAT_SYSTEM_PROMPT,
             "messages": messages,
         }
-        if tools:
+        # On last round, omit tools to force a text response
+        if tools and round_num < max_rounds - 1:
             kwargs["tools"] = tools
 
         response = await aclient.messages.create(**kwargs)
