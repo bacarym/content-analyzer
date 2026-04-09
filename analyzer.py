@@ -888,7 +888,7 @@ Génère le brief et les prompts."""
 # CHAT ABOUT CONTENT — async with tool_use (Exa + Apify Reddit)
 # ═══════════════════════════════════════
 
-APIFY_REDDIT_ACTOR = "trudax~reddit-scraper"
+APIFY_REDDIT_ACTOR = "trudax~reddit-scraper-lite"
 
 CHAT_SYSTEM_PROMPT = """<role>
 Tu es un assistant de recherche expert en tech, AI, crypto et business.
@@ -1034,40 +1034,66 @@ async def _chat_reddit_search(query: str, apify_key: str,
                                client: httpx.AsyncClient,
                                max_posts: int = 10, sort: str = "relevance",
                                time_filter: str = "month") -> str:
-    """Search Reddit via Apify trudax/reddit-scraper (sync call)."""
-    url = f"https://api.apify.com/v2/acts/{APIFY_REDDIT_ACTOR}/run-sync-get-dataset-items"
+    """Search Reddit via Apify trudax/reddit-scraper-lite (async: start → poll → get items)."""
+    headers = {"Authorization": f"Bearer {apify_key}",
+               "Content-Type": "application/json"}
 
     payload = {
-        "searchMode": True,
         "searches": [query],
+        "searchPosts": True,
+        "searchComments": False,
+        "searchCommunities": False,
+        "searchUsers": False,
         "sort": sort,
         "time": time_filter,
-        "searchType": "posts",
         "maxItems": max_posts,
         "maxPostCount": max_posts,
         "maxComments": 5,
         "skipComments": False,
         "includeNSFW": False,
-        "proxy": {
-            "useApifyProxy": True,
-            "apifyProxyGroups": ["RESIDENTIAL"],
-        },
     }
 
     try:
+        # 1. Start run and wait for completion (run-sync waits up to 300s)
         r = await client.post(
-            url, json=payload,
-            headers={"Authorization": f"Bearer {apify_key}",
-                     "Content-Type": "application/json"},
-            params={"format": "json", "clean": "true"},
-            timeout=120)
-        if r.status_code != 200:
+            f"https://api.apify.com/v2/acts/{APIFY_REDDIT_ACTOR}/runs",
+            json=payload, headers=headers,
+            params={"waitForFinish": 120},
+            timeout=130)
+        if r.status_code not in (200, 201):
             return f"Reddit search failed (HTTP {r.status_code})"
 
-        items = r.json()
+        run_data = r.json().get("data", {})
+        status = run_data.get("status", "")
+        dataset_id = run_data.get("defaultDatasetId")
+
+        # If still running, poll a few more times
+        if status == "RUNNING":
+            run_id = run_data.get("id")
+            for _ in range(10):
+                await asyncio.sleep(3)
+                sr = await client.get(
+                    f"https://api.apify.com/v2/actor-runs/{run_id}",
+                    headers=headers, timeout=10)
+                sd = sr.json().get("data", {})
+                status = sd.get("status", "")
+                if status != "RUNNING":
+                    break
+
+        if status != "SUCCEEDED":
+            return f"Reddit search ended with status: {status}"
+
+        # 2. Get dataset items
+        dr = await client.get(
+            f"https://api.apify.com/v2/datasets/{dataset_id}/items",
+            headers=headers,
+            params={"format": "json", "clean": "true"},
+            timeout=15)
+        items = dr.json() if dr.status_code == 200 else []
         if not items:
             return "Aucune discussion Reddit trouvée."
 
+        # 4. Format results
         posts = [it for it in items if it.get("dataType") == "post"]
         comments_by_parent = {}
         for it in items:
@@ -1186,23 +1212,20 @@ async def chat_about_content_async(message: str, bookmark: dict,
 
     aclient = _get_anthropic_client(api_key)
 
-    # Agentic tool_use loop — max 3 rounds, last round forces text response
-    max_rounds = 3
+    # Agentic tool_use loop — max 2 rounds of tool calls
     response = None
-    for round_num in range(max_rounds):
+    for _ in range(2):
         kwargs = {
             "model": "claude-sonnet-4-6",
             "max_tokens": 4096,
             "system": CHAT_SYSTEM_PROMPT,
             "messages": messages,
         }
-        # On last round, omit tools to force a text response
-        if tools and round_num < max_rounds - 1:
+        if tools:
             kwargs["tools"] = tools
 
         response = await aclient.messages.create(**kwargs)
 
-        # Extract tool calls and text
         tool_calls = [b for b in response.content if b.type == "tool_use"]
         if not tool_calls:
             break
@@ -1237,9 +1260,26 @@ async def chat_about_content_async(message: str, bookmark: dict,
             })
         messages.append({"role": "user", "content": tool_results})
 
-    # Extract final text response
+    # Extract text from response
     text_parts = [b.text for b in response.content if b.type == "text"]
-    return "\n".join(text_parts).strip() or "Recherche terminée."
+    final_text = "\n".join(text_parts).strip()
+
+    # If loop ended with tool results but no synthesis, force a final text call
+    if not final_text and len(messages) > 3:
+        messages.append({
+            "role": "user",
+            "content": "Synthétise maintenant tous les résultats de recherche ci-dessus en une réponse claire et structurée.",
+        })
+        response = await aclient.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system=CHAT_SYSTEM_PROMPT,
+            messages=messages,
+        )
+        text_parts = [b.text for b in response.content if b.type == "text"]
+        final_text = "\n".join(text_parts).strip()
+
+    return final_text or "Aucun résultat trouvé."
 
 
 # ═══════════════════════════════════════
