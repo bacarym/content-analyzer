@@ -10,6 +10,7 @@
       src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
     ></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -798,11 +799,6 @@
                     <span class="text-sm font-medium text-[#D1CBC4]"
                       x-text="t('Rapport d\'analyse', 'Analysis Report')"></span
                     >
-                    <span
-                      class="px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide"
-                      :class="selectedBm.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : selectedBm.verdict === 'MIXED' ? 'bg-[#FFCC00]/10 text-[#FFCC00]' : selectedBm.verdict === 'NOISE' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-white/5 text-[#8E887F]'"
-                      x-text="selectedBm.verdict || 'Pending'"
-                    ></span>
                     <a
                       :href="selectedBm.url"
                       target="_blank"
@@ -830,149 +826,201 @@
                 <div
                   class="flex-1 overflow-y-auto no-scrollbar px-4 md:px-6 lg:px-12 pt-6 md:pt-8 pb-[180px] mask-fade-bottom"
                 >
-                  <div class="max-w-3xl mx-auto">
-                    <!-- Title & Meta -->
-                    <div class="mb-8 md:mb-10">
-                      <h1
-                        class="text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight text-white mb-3 md:mb-4 leading-tight"
-                        x-text="getTitle(selectedBm)"
-                      ></h1>
-                      <div
-                        class="flex flex-wrap items-center gap-3 md:gap-4 text-sm text-[#8E887F]"
-                      >
-                        <span class="flex items-center gap-1.5">
-                          <iconify-icon icon="solar:user-linear"></iconify-icon>
-                          <span
-                            x-text="selectedBm.author_name || selectedBm.author_username"
-                          ></span>
-                        </span>
-                        <span class="w-1 h-1 rounded-full bg-white/20"></span>
-                        <span
-                          x-text="selectedBm.created_at ? selectedBm.created_at.slice(0, 10) : ''"
-                        ></span>
-                        <span
-                          class="w-1 h-1 rounded-full bg-white/20"
-                          x-show="selectedBm.verdict"
-                        ></span>
-                        <span
-                          x-show="selectedBm.verdict === 'SIGNAL'"
-                          class="text-[#34C759] flex items-center gap-1"
-                        >
-                          <iconify-icon
-                            icon="solar:verified-check-linear"
-                          ></iconify-icon>
-                          <span x-text="t('Signal fort', 'High Signal')"></span>
-                        </span>
+                  <div id="sgnl-share-card" class="max-w-5xl mx-auto flex flex-col gap-5 p-4 -m-4 rounded-3xl">
+
+                    <!-- ═══════ HEADER & ACTIONS ═══════ -->
+                    <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-2">
+                      <div class="flex-1">
+                        <div class="flex flex-wrap gap-1.5 mb-3" x-show="selectedBm.tags && selectedBm.tags.length">
+                          <template x-for="tag in (selectedBm.tags || []).slice(0, 4)" :key="tag">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-medium text-[#8E887F] bg-white/[0.04] border border-white/[0.04]" x-text="tag"></span>
+                          </template>
+                        </div>
+                        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white leading-tight mb-2" x-text="getTitle(selectedBm)"></h1>
+                        <div class="flex items-center gap-2 text-xs text-[#6B665F]">
+                          <span x-text="'@' + (selectedBm.author_username || selectedBm.author_name || '')"></span>
+                          <span class="text-white/10">•</span>
+                          <span x-text="selectedBm.created_at ? selectedBm.created_at.slice(0, 10) : ''"></span>
+                        </div>
                       </div>
-                      <div class="flex flex-wrap gap-1.5 mt-3">
-                        <span
-                          x-show="selectedBm.translation"
-                          class="px-2 py-0.5 rounded bg-[#E85D00]/10 text-[#E85D00] text-[10px] font-medium border border-[#E85D00]/15"
-                          x-text="t('FR Traduit', 'FR Translated')"></span
-                        >
-                        <template
-                          x-for="tag in (selectedBm.tags || []).slice(0, 6)"
-                          :key="tag"
-                        >
-                          <span
-                            class="px-2 py-1 rounded bg-white/5 border border-white/5 text-xs text-[#A19B92]"
-                            x-text="tag"
-                          ></span>
-                        </template>
+                      
+                      <!-- Actions moved to top for easy access/sharing -->
+                      <div class="flex flex-wrap md:flex-nowrap gap-2 shrink-0" data-html2canvas-ignore="true">
+                        <button type="button" @click="exportImage()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#D1CBC4] bg-[#14120F] hover:bg-[#1C1A17] border border-white/[0.08] transition-colors">
+                          <iconify-icon icon="solar:camera-linear" class="text-sm text-[#8E887F]"></iconify-icon>
+                          <span class="hidden md:inline" x-text="t('Image', 'Image')"></span>
+                        </button>
+                        <button type="button" @click="copyAnalysis()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#D1CBC4] bg-[#14120F] hover:bg-[#1C1A17] border border-white/[0.08] transition-colors">
+                          <iconify-icon icon="solar:copy-linear" class="text-sm text-[#8E887F]"></iconify-icon>
+                          <span class="hidden md:inline" x-text="t('Texte', 'Text')"></span>
+                        </button>
+                        <a :href="selectedBm.url" target="_blank" x-show="selectedBm.url && !selectedBm.url.startsWith('file://')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#D1CBC4] bg-[#14120F] hover:bg-[#1C1A17] border border-white/[0.08] transition-colors">
+                          <iconify-icon icon="solar:arrow-right-up-linear" class="text-sm text-[#8E887F]"></iconify-icon>
+                          <span class="hidden md:inline">Original</span>
+                        </a>
+                        <button type="button" @click="openChat()" class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#E85D00] hover:bg-[#FF6B0A] shadow-lg shadow-[#E85D00]/20 transition-all">
+                          <iconify-icon icon="solar:chat-round-dots-bold" class="text-sm"></iconify-icon>
+                          <span x-text="t('Discuter', 'Discuss')"></span>
+                        </button>
                       </div>
                     </div>
 
-                    <!-- AI Analysis Block — 3-tier structure -->
-                    <div class="flex flex-col gap-6">
-                      <div class="flex items-center gap-2.5">
-                        <div
-                          class="w-6 h-6 rounded-full bg-[#E85D00] flex items-center justify-center text-white shadow-sm"
-                        >
-                          <iconify-icon
-                            icon="solar:magic-stick-3-bold"
-                            class="text-[12px]"
-                          ></iconify-icon>
+                    <!-- ═══════ BENTO GRID ═══════ -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5">
+                      
+                      <!-- ── COLONNE GAUCHE (7 cols) ── -->
+                      <div class="lg:col-span-7 flex flex-col gap-4 md:gap-5">
+                        
+                        <!-- HERO SCORE CARD (Shareable) -->
+                        <div class="rounded-2xl bg-[#14120F] border border-white/[0.06] p-6 relative overflow-hidden flex flex-col items-center justify-center text-center min-h-[220px]">
+                          <!-- Glow effect based on verdict -->
+                          <div class="absolute inset-0 opacity-[0.08] pointer-events-none"
+                               :class="selectedBm.verdict === 'SIGNAL' ? 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#34C759] via-[#14120F] to-[#14120F]' : selectedBm.verdict === 'NOISE' ? 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#FF3B30] via-[#14120F] to-[#14120F]' : selectedBm.verdict === 'MIXED' ? 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#FFCC00] via-[#14120F] to-[#14120F]' : 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/20 via-[#14120F] to-[#14120F]'"></div>
+                          
+                          <div class="relative z-10 flex flex-col items-center">
+                            <div class="text-[10px] font-bold tracking-widest text-[#8E887F] uppercase mb-2">SGNL Score</div>
+                            
+                            <div class="text-5xl md:text-6xl font-black tracking-tighter mb-4 uppercase drop-shadow-xl"
+                                 :class="selectedBm.verdict === 'SIGNAL' ? 'text-[#34C759]' : selectedBm.verdict === 'NOISE' ? 'text-[#FF3B30]' : selectedBm.verdict === 'MIXED' ? 'text-[#FFCC00]' : 'text-[#8E887F]'"
+                                 x-text="selectedBm.verdict || 'PENDING'">
+                            </div>
+                            
+                            <!-- Metrics Pills in Hero -->
+                            <div class="flex flex-wrap justify-center gap-2" x-show="getMetrics(selectedBm).length > 0">
+                              <template x-for="m in getMetrics(selectedBm)" :key="m.label">
+                                <span
+                                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border bg-[#0B0A08]/50 backdrop-blur-sm"
+                                  :class="m.warn ? 'text-[#FF3B30] border-[#FF3B30]/20' : 'text-[#D1CBC4] border-white/[0.08]'"
+                                >
+                                  <iconify-icon :icon="m.icon" class="text-xs" :class="m.warn ? 'text-[#FF3B30]' : 'text-[#8E887F]'"></iconify-icon>
+                                  <span x-text="m.count"></span>
+                                  <span x-text="m.label"></span>
+                                </span>
+                              </template>
+                            </div>
+                          </div>
                         </div>
-                        <span class="text-sm font-medium text-white" x-text="t('Analyse', 'Analysis')"></span>
-                        <span class="text-xs text-[#8E887F] ml-1 font-light">Claude + Exa</span>
+
+                        <!-- RESUME -->
+                        <div x-show="selectedBm.eli5" class="p-6 rounded-2xl bg-[#14120F] border border-white/[0.04] flex-1">
+                          <div class="flex items-center gap-2 mb-4">
+                            <div class="w-6 h-6 rounded-full bg-[#E85D00]/10 flex items-center justify-center">
+                              <iconify-icon icon="solar:document-text-bold" class="text-[#E85D00] text-xs"></iconify-icon>
+                            </div>
+                            <span class="text-xs font-bold text-white tracking-wide" x-text="t('Résumé', 'Summary')"></span>
+                          </div>
+                          <p class="text-[15px] text-[#D1CBC4] leading-relaxed" x-text="selectedBm.eli5"></p>
+                        </div>
+
+                        <!-- CONCLUSION -->
+                        <div x-show="selectedBm.conclusion" class="p-6 rounded-2xl bg-[#14120F] border border-white/[0.04]">
+                          <div class="flex items-center gap-2 mb-4">
+                            <div class="w-6 h-6 rounded-full bg-[#34C759]/10 flex items-center justify-center">
+                              <iconify-icon icon="solar:chat-square-check-bold" class="text-[#34C759] text-xs"></iconify-icon>
+                            </div>
+                            <span class="text-xs font-bold text-white tracking-wide">Conclusion</span>
+                          </div>
+                          <div class="text-sm text-[#D1CBC4] leading-relaxed" x-html="renderContent(selectedBm.conclusion)"></div>
+                        </div>
+
                       </div>
 
-                      <!-- ── TIER 1: Digest (always visible) ── -->
-                      <div class="w-full bg-[#14120F] rounded-xl p-5 md:p-6 border border-white/[0.03] space-y-5">
-                        <div x-show="selectedBm.translation" class="rounded-lg bg-[#E85D00]/5 border border-[#E85D00]/10 px-4 py-3">
-                          <p class="text-sm md:text-base text-[#E5E1DB] leading-relaxed" x-text="selectedBm.translation"></p>
+                      <!-- ── COLONNE DROITE (5 cols) ── -->
+                      <div class="lg:col-span-5 flex flex-col gap-4 md:gap-5">
+                        
+                        <!-- FACT CHECK -->
+                        <div x-show="selectedBm.claims_check && selectedBm.claims_check !== 'N/A'" class="p-6 rounded-2xl bg-[#14120F] border border-white/[0.04]">
+                          <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                              <div class="w-6 h-6 rounded-full bg-[#FFCC00]/10 flex items-center justify-center">
+                                <iconify-icon icon="solar:shield-check-bold" class="text-[#FFCC00] text-xs"></iconify-icon>
+                              </div>
+                              <span class="text-xs font-bold text-white tracking-wide" x-text="t('Vérification', 'Fact Check')"></span>
+                            </div>
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-white/[0.04] text-[#8E887F]" x-text="((selectedBm.claims_check.match(/Claim\s*:/gi) || []).length || '0') + ' claims'"></span>
+                          </div>
+                          <div class="text-sm leading-relaxed" x-html="renderClaims(selectedBm.claims_check)"></div>
                         </div>
-                        <div x-show="selectedBm.eli5">
-                          <h2 class="text-base md:text-lg font-semibold text-white mb-2 tracking-tight flex items-center gap-2">
-                            <iconify-icon icon="solar:lightbulb-bolt-linear" class="text-[#FFCC00]"></iconify-icon>
-                            <span x-text="t('En bref', 'Summary')"></span>
-                          </h2>
-                          <p class="text-sm md:text-base text-[#D1CBC4] leading-relaxed" x-text="selectedBm.eli5"></p>
+
+                        <!-- RED FLAGS -->
+                        <div x-show="selectedBm.red_flags && selectedBm.red_flags !== 'Aucun' && selectedBm.red_flags !== 'N/A'" class="p-6 rounded-2xl bg-[#14120F] border border-white/[0.04]">
+                          <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                              <div class="w-6 h-6 rounded-full bg-[#FF3B30]/10 flex items-center justify-center">
+                                <iconify-icon icon="solar:danger-triangle-bold" class="text-[#FF3B30] text-xs"></iconify-icon>
+                              </div>
+                              <span class="text-xs font-bold text-white tracking-wide">Red Flags</span>
+                            </div>
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-[#FF3B30]/10 text-[#FF3B30]" x-text="parseRedFlags(selectedBm.red_flags).length"></span>
+                          </div>
+                          <div class="flex flex-wrap gap-2">
+                            <template x-for="(flag, i) in parseRedFlags(selectedBm.red_flags)" :key="i">
+                              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#FF3B30]/90 bg-[#FF3B30]/[0.08] border border-[#FF3B30]/15 w-full">
+                                <iconify-icon icon="solar:close-circle-bold" class="text-[10px] shrink-0"></iconify-icon>
+                                <span x-text="flag" class="truncate"></span>
+                              </span>
+                            </template>
+                          </div>
                         </div>
-                        <div x-show="selectedBm.conclusion">
-                          <h2 class="text-sm font-semibold text-[#E85D00] mb-1.5" x-text="t('Conclusion', 'Conclusion')"></h2>
-                          <p class="text-sm md:text-base text-[#D1CBC4] leading-relaxed" x-text="selectedBm.conclusion"></p>
+
+                        <!-- COLLAPSIBLE SECTIONS -->
+                        <div class="rounded-2xl bg-[#14120F] border border-white/[0.04] overflow-hidden divide-y divide-white/[0.04]" data-html2canvas-ignore="true">
+
+                          <!-- Actionable Ideas -->
+                          <details x-show="selectedBm.feature_ideas" class="group">
+                            <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none text-[#8E887F] hover:text-white hover:bg-white/[0.02] transition-colors">
+                              <iconify-icon icon="solar:alt-arrow-right-linear" class="text-xs group-open:rotate-90 transition-transform"></iconify-icon>
+                              <span class="text-xs font-bold tracking-wide" x-text="t('Idées actionnables', 'Actionable Ideas')"></span>
+                              <span class="text-[10px] text-[#6B665F] tabular-nums ml-auto" x-text="'(' + ((selectedBm.feature_ideas || '').match(/[•\-]\s/g) || []).length + ')'"></span>
+                            </summary>
+                            <div class="px-5 pb-5 pt-1 text-sm text-[#D1CBC4] leading-relaxed" x-html="renderContent(selectedBm.feature_ideas)"></div>
+                          </details>
+
+                          <!-- Sources externes -->
+                          <details x-show="selectedBm.web_research_summary" class="group">
+                            <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none text-[#8E887F] hover:text-white hover:bg-white/[0.02] transition-colors">
+                              <iconify-icon icon="solar:alt-arrow-right-linear" class="text-xs group-open:rotate-90 transition-transform"></iconify-icon>
+                              <span class="text-xs font-bold tracking-wide" x-text="t('Sources externes', 'External Sources')"></span>
+                              <span class="text-[10px] text-[#6B665F] tabular-nums ml-auto" x-text="'(' + getMetrics(selectedBm).find(m => m.label === 'sources')?.count + ')'"></span>
+                            </summary>
+                            <div class="px-5 pb-5 pt-1 text-sm text-[#D1CBC4] leading-relaxed" x-html="renderContent(selectedBm.web_research_summary)"></div>
+                          </details>
+
+                          <!-- Repo Analysis -->
+                          <details x-show="selectedBm.repo_analysis" class="group">
+                            <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none text-[#8E887F] hover:text-white hover:bg-white/[0.02] transition-colors">
+                              <iconify-icon icon="solar:alt-arrow-right-linear" class="text-xs group-open:rotate-90 transition-transform"></iconify-icon>
+                              <span class="text-xs font-bold tracking-wide">Repo Analysis</span>
+                            </summary>
+                            <div class="px-5 pb-5 pt-1">
+                              <pre class="text-xs text-[#8E887F] font-mono leading-relaxed whitespace-pre-wrap p-4 bg-[#0B0A08] rounded-xl border border-white/[0.04]" x-text="selectedBm.repo_analysis"></pre>
+                            </div>
+                          </details>
+
+                          <!-- Translation -->
+                          <details x-show="selectedBm.translation" class="group">
+                            <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none text-[#8E887F] hover:text-white hover:bg-white/[0.02] transition-colors">
+                              <iconify-icon icon="solar:alt-arrow-right-linear" class="text-xs group-open:rotate-90 transition-transform"></iconify-icon>
+                              <span class="text-xs font-bold tracking-wide" x-text="t('Traduction', 'Translation')"></span>
+                            </summary>
+                            <div class="px-5 pb-5 pt-1 text-sm text-[#D1CBC4] leading-relaxed" x-text="selectedBm.translation"></div>
+                          </details>
+
+                          <!-- Original Content -->
+                          <details class="group">
+                            <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none text-[#8E887F] hover:text-white hover:bg-white/[0.02] transition-colors">
+                              <iconify-icon icon="solar:alt-arrow-right-linear" class="text-xs group-open:rotate-90 transition-transform"></iconify-icon>
+                              <span class="text-xs font-bold tracking-wide" x-text="t('Contenu original', 'Original Content')"></span>
+                            </summary>
+                            <div class="px-5 pb-5 pt-1">
+                              <pre class="text-xs text-[#8E887F] font-mono leading-relaxed whitespace-pre-wrap p-4 bg-[#0B0A08] rounded-xl border border-white/[0.04]" x-text="selectedBm.content"></pre>
+                            </div>
+                          </details>
+
                         </div>
                       </div>
-
-                      <!-- ── TIER 2: Insights (open by default) ── -->
-                      <div class="space-y-4" x-show="selectedBm.feature_ideas || (selectedBm.red_flags && selectedBm.red_flags !== 'Aucun' && selectedBm.red_flags !== 'N/A')">
-                        <div x-show="selectedBm.feature_ideas" class="w-full rounded-xl p-5 bg-[#BF5AF2]/[0.04] border border-[#BF5AF2]/10">
-                          <h2 class="text-base font-semibold text-white mb-3 tracking-tight flex items-center gap-2">
-                            <iconify-icon icon="solar:star-shine-linear" class="text-[#BF5AF2]"></iconify-icon>
-                            <span x-text="t('Idées de features', 'Feature Ideas')"></span>
-                          </h2>
-                          <pre class="text-sm text-[#E5E1DB] font-sans font-light leading-relaxed whitespace-pre-wrap" x-text="selectedBm.feature_ideas"></pre>
-                        </div>
-                        <div x-show="selectedBm.red_flags && selectedBm.red_flags !== 'Aucun' && selectedBm.red_flags !== 'N/A'" class="w-full rounded-xl p-5 bg-[#FF3B30]/[0.04] border border-[#FF3B30]/10">
-                          <h2 class="text-sm font-semibold text-[#FF3B30] mb-2 flex items-center gap-2">
-                            <iconify-icon icon="solar:danger-circle-linear"></iconify-icon>
-                            Red Flags
-                          </h2>
-                          <p class="text-sm text-[#E5E1DB]/80 leading-relaxed" x-text="selectedBm.red_flags"></p>
-                        </div>
-                      </div>
-
-                      <!-- ── TIER 3: Deep Dive (single collapsible) ── -->
-                      <details
-                        x-show="selectedBm.claims_check || selectedBm.actionable || selectedBm.repo_analysis || selectedBm.web_research_summary || selectedBm.content"
-                        class="group w-full rounded-xl border border-white/[0.05] overflow-hidden bg-[#14120F]"
-                      >
-                        <summary class="px-5 py-3.5 text-sm font-medium text-[#8E887F] cursor-pointer hover:text-white transition-colors flex items-center gap-2 select-none">
-                          <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
-                          <span x-text="t('Détails complets', 'Full Details')"></span>
-                          <span class="text-xs text-[#6B665F] ml-auto font-light" x-text="t('Claims, opportunités, sources', 'Claims, opportunities, sources')"></span>
-                        </summary>
-                        <div class="px-5 pb-5 space-y-5 border-t border-white/[0.03]">
-                          <div x-show="selectedBm.claims_check && selectedBm.claims_check !== 'N/A'" class="pt-4">
-                            <h3 class="text-xs font-semibold text-[#34C759] mb-2 flex items-center gap-1.5">
-                              <iconify-icon icon="solar:shield-check-linear"></iconify-icon>
-                              <span x-text="t('Vérification des claims', 'Claims Check')"></span>
-                            </h3>
-                            <pre class="text-xs text-[#8E887F] font-sans leading-relaxed whitespace-pre-wrap" x-text="selectedBm.claims_check"></pre>
-                          </div>
-                          <div x-show="selectedBm.actionable && selectedBm.actionable !== 'N/A'">
-                            <h3 class="text-xs font-semibold text-[#E85D00] mb-2 flex items-center gap-1.5">
-                              <iconify-icon icon="solar:bolt-linear"></iconify-icon>
-                              <span x-text="t('Opportunités extraites', 'Extracted Opportunities')"></span>
-                            </h3>
-                            <pre class="text-sm text-[#E5E1DB] font-sans font-light leading-relaxed whitespace-pre-wrap" x-text="selectedBm.actionable"></pre>
-                          </div>
-                          <div x-show="selectedBm.repo_analysis">
-                            <h3 class="text-xs font-semibold text-[#8E887F] mb-2" x-text="t('Analyse du repo', 'Repo Analysis')"></h3>
-                            <pre class="text-xs text-[#8E887F] font-sans leading-relaxed whitespace-pre-wrap" x-text="selectedBm.repo_analysis"></pre>
-                          </div>
-                          <div x-show="selectedBm.web_research_summary">
-                            <h3 class="text-xs font-semibold text-[#8E887F] mb-2" x-text="t('Recherche web', 'Web Research')"></h3>
-                            <pre class="text-xs text-[#8E887F] font-sans leading-relaxed whitespace-pre-wrap" x-text="selectedBm.web_research_summary"></pre>
-                          </div>
-                          <div class="pt-2 border-t border-white/[0.03]">
-                            <h3 class="text-xs text-[#6B665F] mb-2" x-text="t('Contenu original', 'Original Content')"></h3>
-                            <pre class="text-xs text-[#6B665F] bg-[#0B0A08] rounded-lg p-3 max-h-48 overflow-auto border border-white/[0.03]" x-text="selectedBm.content"></pre>
-                          </div>
-                        </div>
-                      </details>
                     </div>
+
                   </div>
                 </div>
 
@@ -1961,6 +2009,13 @@
             return true;
           },
 
+          _cleanTitle(text) {
+            if (!text) return '';
+            let clean = text.replace(/https?:\/\/t\.co\/\S+/g, '').replace(/https?:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim();
+            if (clean.endsWith(':')) clean = clean.slice(0, -1).trim();
+            return clean;
+          },
+
           getTitle(bm) {
             const raw = bm.content || "";
             const isUrlOnly = /^https?:\/\/\S+$/.test(raw.trim());
@@ -1979,10 +2034,10 @@
               this.needsTranslation(raw) && (bm.summary || bm.eli5)
                 ? bm.summary || bm.eli5
                 : raw;
-            const line = source.split(/\n/)[0].trim();
-            if (!line) return bm.author_name || this.t("Sans titre", "Untitled");
-            if (line.length > 100) return line.slice(0, 97) + "...";
-            return line;
+            const cleaned = this._cleanTitle(source.split(/\n/)[0]);
+            if (!cleaned) return bm.author_name || this.t("Sans titre", "Untitled");
+            if (cleaned.length > 100) return cleaned.slice(0, 97) + "...";
+            return cleaned;
           },
 
           needsTranslation(content) {
@@ -1994,6 +2049,146 @@
               ) || []
             ).length;
             return nonLatin > sample.length * 0.15;
+          },
+
+          parseRedFlags(text) {
+            if (!text || text === 'Aucun' || text === 'N/A') return [];
+            const raw = text.split(/[.!]\s+/).map(s => s.trim().replace(/\.$/, '')).filter(s => s.length > 5);
+            return raw.map(s => {
+              const words = s.split(/\s+/);
+              if (words.length <= 4) return s;
+              const short = s.match(/^([^:,–—]+)/);
+              return short ? short[1].trim() : words.slice(0, 4).join(' ');
+            }).filter(s => s.length > 3 && s.length < 40).slice(0, 5);
+          },
+
+          getMetrics(bm) {
+            const m = [];
+            if (bm.web_research_summary) {
+              const mentions = (bm.web_research_summary.match(/Reddit|HackerNews|Hacker News|Medium|article|forum|blog|Twitter|GitHub/gi) || []);
+              m.push({ icon: 'solar:global-search-linear', label: 'sources', count: Math.max(mentions.length, 1) });
+            }
+            if (bm.red_flags && bm.red_flags !== 'Aucun' && bm.red_flags !== 'N/A') {
+              const n = this.parseRedFlags(bm.red_flags).length;
+              if (n > 0) m.push({ icon: 'solar:danger-triangle-linear', label: 'red flags', count: n, warn: true });
+            }
+            if (bm.feature_ideas) {
+              const n = (bm.feature_ideas.match(/[•\-]\s/g) || []).length || 1;
+              m.push({ icon: 'solar:lightbulb-bolt-linear', label: this.t('idees', 'ideas'), count: n });
+            }
+            if (bm.claims_check && bm.claims_check !== 'N/A') {
+              const n = (bm.claims_check.match(/Claim\s*:/gi) || []).length;
+              if (n > 0) m.push({ icon: 'solar:shield-check-linear', label: 'claims', count: n });
+            }
+            return m;
+          },
+
+          copyAnalysis() {
+            const bm = this.selectedBm;
+            if (!bm) return;
+            const parts = [];
+            parts.push(`${bm.verdict || '—'} | ${this.getTitle(bm)}`);
+            if (bm.eli5) parts.push(`\n${bm.eli5}`);
+            if (bm.conclusion) parts.push(`\n${this.t('Conclusion', 'Conclusion')}:\n${bm.conclusion}`);
+            if (bm.red_flags && bm.red_flags !== 'Aucun' && bm.red_flags !== 'N/A') parts.push(`\n⚠ ${bm.red_flags}`);
+            if (bm.tags && bm.tags.length) parts.push(`\n#${bm.tags.join(' #')}`);
+            navigator.clipboard.writeText(parts.join('\n')).then(() => this.showToast(this.t('Copie !', 'Copied!')));
+          },
+
+          async exportImage() {
+            const card = document.getElementById('sgnl-share-card');
+            if (!card || typeof html2canvas === 'undefined') return;
+            
+            this.showToast(this.t("Génération de l'image...", "Generating image..."));
+            
+            try {
+              const canvas = await html2canvas(card, {
+                backgroundColor: '#0A0907',
+                scale: 2,
+                useCORS: true,
+                ignoreElements: (el) => el.hasAttribute('data-html2canvas-ignore')
+              });
+              
+              const link = document.createElement('a');
+              link.download = `SGNL-${this.selectedBm.tweet_id}.png`;
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+              
+              this.showToast(this.t("Image exportée !", "Image exported!"));
+            } catch (err) {
+              console.error(err);
+              this.showToast(this.t("Erreur lors de l'export", "Error exporting image"));
+            }
+          },
+
+          getKeyPoints(bm) {
+            const points = [];
+            if (bm.eli5) points.push(bm.eli5);
+            if (bm.conclusion) {
+              const sentences = bm.conclusion.split(/(?<=[.!?])\s+/).filter(s => s.length > 20);
+              if (sentences.length > 0) points.push(sentences[0]);
+              if (sentences.length > 1) points.push(sentences[sentences.length - 1]);
+            }
+            if (bm.red_flags && bm.red_flags !== 'Aucun' && bm.red_flags !== 'N/A') {
+              const first = bm.red_flags.split(/[.!?]\s/)[0];
+              if (first && first.length > 10) points.push(first + '.');
+            }
+            if (bm.feature_ideas) {
+              const bullets = bm.feature_ideas.match(/[•\-]\s*\[?[^\]]*\]?\s*([^•\-\n]+)/);
+              if (bullets) points.push(bullets[0].replace(/^[•\-]\s*/, '').trim());
+            }
+            return points.slice(0, 4);
+          },
+
+          _esc(text) {
+            if (!text) return '';
+            return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          },
+
+          renderContent(text) {
+            if (!text) return '';
+            let h = this._esc(text);
+            h = h.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-medium">$1</strong>');
+            h = h.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" class="text-[#E85D00] hover:underline">$1</a>');
+            const lines = h.split('\n');
+            let out = '', inList = false;
+            for (const line of lines) {
+              const bullet = line.match(/^\s*[•\-]\s+(.+)/);
+              if (bullet) {
+                if (!inList) { out += '<ul class="space-y-2 my-2">'; inList = true; }
+                out += `<li class="flex gap-2 items-start"><span class="text-[#E85D00] mt-0.5 shrink-0">&#8226;</span><span>${bullet[1]}</span></li>`;
+              } else {
+                if (inList) { out += '</ul>'; inList = false; }
+                if (line.trim()) out += `<p class="mb-2">${line}</p>`;
+              }
+            }
+            if (inList) out += '</ul>';
+            return out;
+          },
+
+          renderClaims(text) {
+            if (!text) return '';
+            let h = this._esc(text);
+            const blocks = h.split(/(?=Claim\s*:)/i).filter(b => b.trim());
+            if (!/Claim\s*:/i.test(h)) return this.renderContent(text);
+            return '<div class="space-y-3">' + blocks.map(block => {
+              const isConfirmed = /confirm|vérifi|vérifié|partiellement/i.test(block);
+              const isDenied = /infirm|non.?v[ée]rifi|non.?confirm|trompeu/i.test(block);
+              const claimMatch = block.match(/Claim\s*:\s*(?:&[^;]+;\s*)?['"]?(.+?)['"]?\s*(?:→|[-–—]&gt;|$)/i);
+              const claimText = claimMatch ? claimMatch[1].replace(/['"]$/, '').trim() : '';
+              const proofMatch = block.match(/(?:→|[-–—]&gt;)\s*(.+)/i);
+              const proofText = proofMatch ? proofMatch[1].trim() : '';
+              const iconClass = isDenied ? 'text-[#FF3B30]' : isConfirmed ? 'text-[#34C759]' : 'text-[#FFCC00]';
+              const icon = isDenied ? '&#10005;' : isConfirmed ? '&#10003;' : '~';
+              const claimStyle = isDenied ? 'line-through opacity-60' : '';
+              return `<div class="flex gap-3 items-start py-2">
+                <span class="${iconClass} font-bold text-sm mt-0.5 shrink-0 w-4 text-center">${icon}</span>
+                <div class="min-w-0">
+                  <p class="text-sm text-white font-medium ${claimStyle}">${claimText || this._esc(block.slice(0, 60))}</p>
+                  ${proofText ? `<p class="text-xs text-[#8E887F] mt-1 leading-relaxed">${proofText}</p>` : ''}
+                </div>
+              </div>`;
+            }).join('') + '</div>';
           },
 
           applyDateFilter() {
@@ -2072,14 +2267,18 @@
                 (b.created_at || "").localeCompare(a.created_at || ""),
               created_asc: (a, b) =>
                 (a.created_at || "").localeCompare(b.created_at || ""),
-              fetched_desc: (a, b) =>
-                (b.fetched_at || b.created_at || "").localeCompare(
-                  a.fetched_at || a.created_at || "",
-                ),
-              fetched_asc: (a, b) =>
-                (a.fetched_at || a.created_at || "").localeCompare(
-                  b.fetched_at || b.created_at || "",
-                ),
+              fetched_desc: (a, b) => {
+                const fa = (a.fetched_at || a.created_at || "").slice(0, 19);
+                const fb = (b.fetched_at || b.created_at || "").slice(0, 19);
+                const cmp = fb.localeCompare(fa);
+                return cmp !== 0 ? cmp : (b.created_at || "").localeCompare(a.created_at || "");
+              },
+              fetched_asc: (a, b) => {
+                const fa = (a.fetched_at || a.created_at || "").slice(0, 19);
+                const fb = (b.fetched_at || b.created_at || "").slice(0, 19);
+                const cmp = fa.localeCompare(fb);
+                return cmp !== 0 ? cmp : (a.created_at || "").localeCompare(b.created_at || "");
+              },
               verdict: (a, b) =>
                 (vOrder[a.verdict] ?? 3) - (vOrder[b.verdict] ?? 3),
               author: (a, b) =>
