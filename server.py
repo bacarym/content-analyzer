@@ -1,6 +1,7 @@
 """Content Analyzer — FastAPI backend."""
 
 import os
+import re
 import json
 import hashlib
 from datetime import datetime
@@ -336,8 +337,17 @@ class APIOverloadedError(Exception):
 
 
 async def _analyze_and_save(bm: dict) -> dict:
+    content = bm["content"]
+    if re.match(r'^https?://\S+$', content.strip()):
+        enriched = fetch_tweet_via_fxtwitter(bm["tweet_id"])
+        if enriched and enriched.get("content") and enriched["content"] != content:
+            content = enriched["content"]
+            bm["content"] = content
+            upsert_bookmark(tweet_id=bm["tweet_id"], author_username=bm.get("author_username", ""),
+                            author_name=bm.get("author_name", ""), content=content,
+                            created_at=bm.get("created_at", ""), url=bm.get("url", ""))
     try:
-        a = await analyze_single_async(content=bm["content"], author=bm.get("author_username", ""),
+        a = await analyze_single_async(content=content, author=bm.get("author_username", ""),
                                        api_key=ANTHROPIC_KEY, url=bm.get("url", ""), exa_key=EXA_KEY)
     except Exception as e:
         if "overloaded" in str(e).lower() or "529" in str(e):
@@ -492,9 +502,42 @@ def import_bookmarks():
             return JSONResponse({"error": "Session expired"}, status_code=401)
     if result.get("error"):
         return JSONResponse({"error": result["error"]}, status_code=400)
+    enriched = 0
     for bm in result["bookmarks"]:
+        content = bm.get("content", "")
+        if re.match(r'^https?://\S+$', content.strip()):
+            fx = fetch_tweet_via_fxtwitter(bm["tweet_id"])
+            if fx and fx.get("content") and fx["content"] != content:
+                bm["content"] = fx["content"]
+                enriched += 1
         upsert_bookmark(**{k: v for k, v in bm.items() if k != "error"})
-    return {"imported": len(result["bookmarks"])}
+    return {"imported": len(result["bookmarks"]), "enriched": enriched}
+
+
+@app.post("/api/enrich-articles")
+def enrich_articles():
+    """Backfill: fetch real content for bookmarks that only have a URL."""
+    all_bm = get_all_bookmarks()
+    url_only = [b for b in all_bm if re.match(r'^https?://\S+$', (b.get("content") or "").strip())]
+    enriched, failed = 0, 0
+    errors = []
+    for bm in url_only:
+        try:
+            fx = fetch_tweet_via_fxtwitter(bm["tweet_id"])
+            if fx and fx.get("content") and fx["content"] != bm["content"]:
+                upsert_bookmark(tweet_id=bm["tweet_id"], author_username=bm.get("author_username", ""),
+                                author_name=bm.get("author_name", ""), content=fx["content"],
+                                created_at=bm.get("created_at", ""), url=bm.get("url", ""))
+                enriched += 1
+            else:
+                failed += 1
+                if len(errors) < 3:
+                    errors.append(f"{bm['tweet_id']}: fx={fx is not None}, content={bool(fx and fx.get('content'))}")
+        except Exception as e:
+            failed += 1
+            if len(errors) < 3:
+                errors.append(f"{bm['tweet_id']}: {type(e).__name__}: {str(e)[:100]}")
+    return {"total_url_only": len(url_only), "enriched": enriched, "failed": failed, "sample_errors": errors}
 
 
 @app.post("/api/analyze")
@@ -619,7 +662,9 @@ async def api_reanalyze_batch(tweet_ids: list[str]):
             fx = await loop.run_in_executor(None, fetch_tweet_via_fxtwitter, tid)
             if fx and len(fx.get("content", "")) > len(bm.get("content", "")):
                 bm["content"] = fx["content"]
-                upsert_bookmark(**{k: v for k, v in fx.items() if k != "error"})
+                upsert_bookmark(tweet_id=bm["tweet_id"], author_username=bm.get("author_username", ""),
+                                author_name=bm.get("author_name", ""), content=fx["content"],
+                                created_at=bm.get("created_at", ""), url=bm.get("url", ""))
             try:
                 a = await _analyze_and_save(bm)
                 return {"tweet_id": tid, "verdict": a.get("verdict"), "summary": a.get("summary", "")}

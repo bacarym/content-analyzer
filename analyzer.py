@@ -273,23 +273,51 @@ def _format_exa_results(results: list[dict], source_label: str) -> str:
 def _parse_claude_json(raw: str) -> dict:
     import re
     raw = raw.strip()
-    # Strip markdown code blocks
     raw = re.sub(r'^```(?:json)?\s*', '', raw)
     raw = re.sub(r'\s*```$', '', raw)
-    # Find JSON object
     start = raw.find("{")
     end = raw.rfind("}")
     if start >= 0 and end > start:
         raw = raw[start:end + 1]
-    # Fix unescaped newlines inside JSON strings
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        # Try fixing common issues: unescaped newlines in strings
         fixed = re.sub(r'(?<=": ")(.*?)(?="[,\n\r\s]*["}])',
                        lambda m: m.group(0).replace('\n', '\\n'),
                        raw, flags=re.DOTALL)
-        return json.loads(fixed)
+        try:
+            return json.loads(fixed)
+        except json.JSONDecodeError:
+            pass
+    return _extract_fields_from_truncated(raw)
+
+
+def _extract_fields_from_truncated(raw: str) -> dict:
+    """Extract individual fields from truncated/malformed JSON via regex."""
+    import re
+    result = {}
+    tags_m = re.search(r'"tags"\s*:\s*\[([^\]]*)\]', raw)
+    if tags_m:
+        result["tags"] = [t.strip().strip('"') for t in tags_m.group(1).split(",") if t.strip().strip('"')]
+    str_fields = ["summary", "verdict", "claims_check", "red_flags", "actionable",
+                  "translation", "eli5", "conclusion", "web_research_summary",
+                  "repo_analysis", "feature_ideas"]
+    for field in str_fields:
+        m = re.search(rf'"{field}"\s*:\s*"((?:[^"\\]|\\.)*)', raw)
+        if m:
+            val = m.group(1).replace('\\n', '\n').replace('\\"', '"').strip()
+            if val:
+                result[field] = val
+    if "verdict" not in result:
+        for v in ["SIGNAL", "MIXED", "NOISE"]:
+            if v in raw.upper():
+                result["verdict"] = v
+                break
+    if not result.get("tags"):
+        result["tags"] = ["Uncategorized"]
+    if not result.get("verdict"):
+        result["verdict"] = "MIXED"
+    return result
 
 
 # ═══════════════════════════════════════
@@ -601,7 +629,7 @@ Base CHAQUE vérification sur ces données. Cite les sources."""
         user_msg += "\n\nAucune recherche externe n'a abouti. Analyse sur la base du contenu seul."
 
     t2 = time.time()
-    tokens = 2500 if len(content) > 500 else 1500
+    tokens = 4096 if len(content) > 2000 else (3000 if len(content) > 500 else 1500)
     aclient = _get_anthropic_client(api_key)
     response = await aclient.messages.create(
         model="claude-sonnet-4-6",

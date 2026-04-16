@@ -11,15 +11,19 @@
     ></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <script>
       tailwind.config = {
         theme: {
           extend: {
-            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+            fontFamily: {
+              sans: ["Figtree", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+            },
           },
         },
       };
@@ -30,11 +34,10 @@
       }
       body {
         font-family:
-          "Inter",
+          "Figtree",
           -apple-system,
           BlinkMacSystemFont,
-          "Segoe UI",
-          Roboto,
+          system-ui,
           sans-serif;
       }
       .no-scrollbar::-webkit-scrollbar {
@@ -72,7 +75,7 @@
         }
       }
       .spinner {
-        border: 2px solid rgba(232, 93, 0, 0.25);
+        border: 2px solid rgba(232, 93, 0, 0.2);
         border-top-color: #E85D00;
         border-radius: 50%;
         width: 16px;
@@ -95,10 +98,16 @@
       .btn-primary:hover {
         background: #FF6B00;
       }
+      @media (prefers-reduced-motion: reduce) {
+        .fade-in, .spinner, .animate-pulse, .animate-spin, .animate-bounce {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
     </style>
   </head>
   <body
-    class="bg-[#0A0A0C] text-[#E5E5EA] antialiased selection:bg-[#E85D00]/30 selection:text-white h-screen overflow-hidden flex"
+    class="bg-[#0B0A08] text-[#E5E1DB] antialiased selection:bg-[#E85D00]/30 selection:text-white h-screen overflow-hidden flex"
     x-data="app()"
     x-init="init()"
     @keydown.escape.window="if (chatOpen) { chatOpen = false } else if (selectedBm) { selectedBm = null }"
@@ -107,39 +116,39 @@
   >
     <!-- ═══ Sidebar (desktop) ═══ -->
     <aside
-      class="hidden md:flex w-64 shrink-0 flex-col border-r border-white/[0.05] bg-[#0A0A0C] z-20"
+      class="hidden md:flex w-64 shrink-0 flex-col border-r border-white/[0.05] bg-[#0B0A08] z-20"
     >
       <div class="h-16 flex items-center px-6 border-b border-white/[0.05]">
         <span class="text-xl font-medium tracking-tighter text-white"
           >SGNL</span
         >
-        <span class="ml-3 text-xs text-[#6b6b6b] uppercase tracking-widest mt-1"
+        <span class="ml-3 text-xs text-[#6B665F] uppercase tracking-widest mt-1"
           >Analyzer</span
         >
       </div>
       <nav class="flex-1 px-3 py-6 space-y-6 overflow-y-auto no-scrollbar">
         <div class="space-y-1">
           <div
-            class="text-xs font-medium text-[#8E8E93] px-3 mb-3 uppercase tracking-widest"
+            class="text-xs font-medium text-[#8E887F] px-3 mb-3 uppercase tracking-widest"
           >
-            Platform
+            <span x-text="t('Plateforme', 'Platform')"></span>
           </div>
           <button
             type="button"
             @click="tab = 'bookmarks'; selectedBm = null"
-            :class="tab === 'bookmarks' ? 'bg-white/[0.08] text-white' : 'text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]'"
+            :class="tab === 'bookmarks' ? 'bg-white/[0.08] text-white' : 'text-[#8E887F] hover:text-[#D1CBC4] hover:bg-white/[0.03]'"
             class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors"
           >
             <iconify-icon
               icon="solar:compass-linear"
               class="text-lg shrink-0"
             ></iconify-icon>
-            <span class="text-sm font-medium">Explore</span>
+            <span class="text-sm font-medium" x-text="t('Explorer', 'Explore')"></span>
           </button>
           <button
             type="button"
             @click="tab = 'backlog'; selectedBm = null"
-            :class="tab === 'backlog' ? 'bg-white/[0.08] text-white' : 'text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]'"
+            :class="tab === 'backlog' ? 'bg-white/[0.08] text-white' : 'text-[#8E887F] hover:text-[#D1CBC4] hover:bg-white/[0.03]'"
             class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors"
           >
             <iconify-icon
@@ -148,7 +157,7 @@
             ></iconify-icon>
             <span class="text-sm font-medium">Backlog</span>
             <span
-              class="ml-auto bg-[#1C1C1E] text-xs px-1.5 py-0.5 rounded text-[#8E8E93]"
+              class="ml-auto bg-[#1C1A17] text-xs px-1.5 py-0.5 rounded text-[#8E887F]"
               x-show="backlogIdeaCount > 0"
               x-text="backlogIdeaCount"
             ></span>
@@ -156,14 +165,14 @@
         </div>
         <div class="space-y-1">
           <div
-            class="text-xs font-medium text-[#8E8E93] px-3 mb-3 uppercase tracking-widest"
+            class="text-xs font-medium text-[#8E887F] px-3 mb-3 uppercase tracking-widest"
           >
-            Output
+            <span x-text="t('Résultats', 'Output')"></span>
           </div>
           <button
             type="button"
             @click="tab = 'brief'; selectedBm = null"
-            :class="tab === 'brief' ? 'bg-white/[0.08] text-white' : 'text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]'"
+            :class="tab === 'brief' ? 'bg-white/[0.08] text-white' : 'text-[#8E887F] hover:text-[#D1CBC4] hover:bg-white/[0.03]'"
             class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors"
           >
             <iconify-icon
@@ -175,38 +184,32 @@
           <button
             type="button"
             @click="tab = 'bookmarks'; filter.verdict = ''; selectedBm = null"
-            class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors text-[#8E8E93] hover:text-[#D1D1D6] hover:bg-white/[0.03]"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors text-[#8E887F] hover:text-[#D1CBC4] hover:bg-white/[0.03]"
           >
             <iconify-icon
               icon="solar:history-linear"
               class="text-lg shrink-0"
             ></iconify-icon>
-            <span class="text-sm font-medium">History</span>
+            <span class="text-sm font-medium" x-text="t('Historique', 'History')"></span>
           </button>
         </div>
       </nav>
-      <div class="p-4 border-t border-white/[0.05]">
+      <div class="p-3 border-t border-white/[0.05]">
         <button
-          class="flex items-center gap-3 w-full px-2 py-2 rounded-lg text-[#8E8E93] hover:text-white transition-colors"
+          type="button"
+          @click="tab = 'settings'; selectedBm = null"
+          :class="tab === 'settings' ? 'bg-white/[0.08] text-white' : 'text-[#8E887F] hover:text-[#D1CBC4] hover:bg-white/[0.03]'"
+          class="flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors"
         >
-          <div
-            class="w-8 h-8 rounded-full bg-[#1C1C1E] flex items-center justify-center border border-white/5"
-          >
-            <iconify-icon
-              icon="solar:user-linear"
-              class="text-sm"
-            ></iconify-icon>
-          </div>
-          <div class="flex flex-col items-start">
-            <span
-              class="text-sm font-medium"
-              x-text="`${stats.total_bookmarks || 0} contenus`"
-            ></span>
-            <span
-              class="text-xs text-[#6b6b6b]"
-              x-text="connected ? 'X connecté' : 'X non connecté'"
-            ></span>
-          </div>
+          <iconify-icon
+            icon="solar:settings-linear"
+            class="text-lg shrink-0"
+          ></iconify-icon>
+          <span class="text-sm font-medium" x-text="t('Réglages', 'Settings')"></span>
+          <span
+            class="ml-auto w-2 h-2 rounded-full"
+            :class="connected ? 'bg-[#34C759]' : 'bg-[#8E887F]'"
+          ></span>
         </button>
       </div>
     </aside>
@@ -218,24 +221,23 @@
 
       <!-- ═══ LEFT COLUMN: List / Explore ═══ -->
       <section
-        class="w-full md:w-[380px] lg:w-[420px] flex flex-col border-r border-white/[0.05] bg-[#0A0A0C] z-10 h-full relative"
+        class="w-full md:w-[380px] lg:w-[420px] flex flex-col border-r border-white/[0.05] bg-[#0B0A08] z-10 h-full relative"
         :class="{ 'hidden md:flex': selectedBm && tab === 'bookmarks' }"
         x-show="tab === 'bookmarks'"
       >
         <!-- Header & Import -->
         <div
-          class="px-5 pt-6 pb-4 flex flex-col gap-4 border-b border-white/[0.05] bg-[#0A0A0C] sticky top-0 z-20"
+          class="px-5 pt-6 pb-4 flex flex-col gap-4 border-b border-white/[0.05] bg-[#0B0A08] sticky top-0 z-20"
         >
           <div class="flex justify-between items-center">
-            <h1 class="text-xl font-medium tracking-tight text-white">
-              Explore
+            <h1 class="text-xl font-medium tracking-tight text-white" x-text="t('Explorer', 'Explore')">
             </h1>
             <div class="flex items-center gap-1.5">
               <button
                 type="button"
                 @click="refreshData()"
                 :disabled="refreshing"
-                class="w-9 h-9 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#D1D1D6] hover:bg-[#2C2C2E] transition-colors border border-white/5"
+                class="w-10 h-10 md:w-9 md:h-9 rounded-full bg-[#1C1A17] flex items-center justify-center text-[#D1CBC4] hover:bg-[#2C2A26] transition-colors border border-white/5"
                 title="Rafraîchir"
               >
                 <iconify-icon
@@ -244,64 +246,54 @@
                   :class="refreshing && 'animate-spin'"
                 ></iconify-icon>
               </button>
+              <template x-if="connected">
+                <button
+                  type="button"
+                  @click="importBookmarks()"
+                  :disabled="importing"
+                  class="w-10 h-10 md:w-9 md:h-9 rounded-full bg-[#1C1A17] flex items-center justify-center text-[#D1CBC4] hover:bg-[#2C2A26] transition-colors border border-white/5"
+                  :title="t('Importer bookmarks X', 'Import X bookmarks')"
+                >
+                  <span x-show="!importing"
+                    ><iconify-icon
+                      icon="solar:download-minimalistic-linear"
+                      class="text-lg"
+                    ></iconify-icon
+                  ></span>
+                  <span x-show="importing" class="spinner"></span>
+                </button>
+              </template>
               <template x-if="!connected">
                 <button
                   type="button"
-                  @click="connectX()"
-                  class="px-3 py-1.5 rounded-lg text-xs font-medium text-white btn-primary flex items-center gap-1.5"
+                  @click="tab = 'settings'"
+                  class="w-10 h-10 md:w-9 md:h-9 rounded-full bg-[#1C1A17] flex items-center justify-center text-[#8E887F] hover:text-[#D1CBC4] transition-colors border border-white/5"
+                  :title="t('Connecter X via Réglages', 'Connect X via Settings')"
                 >
-                  <iconify-icon icon="solar:link-circle-linear"></iconify-icon>
-                  Connecter X
+                  <iconify-icon
+                    icon="solar:link-circle-linear"
+                    class="text-lg"
+                  ></iconify-icon>
                 </button>
-              </template>
-              <template x-if="connected">
-                <div class="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    @click="importBookmarks()"
-                    :disabled="importing"
-                    class="w-9 h-9 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#D1D1D6] hover:bg-[#2C2C2E] transition-colors border border-white/5"
-                    title="Importer bookmarks X"
-                  >
-                    <span x-show="!importing"
-                      ><iconify-icon
-                        icon="solar:download-minimalistic-linear"
-                        class="text-lg"
-                      ></iconify-icon
-                    ></span>
-                    <span x-show="importing" class="spinner"></span>
-                  </button>
-                  <button
-                    type="button"
-                    @click="disconnectX()"
-                    class="w-9 h-9 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#8E8E93] hover:text-[#FF3B30] transition-colors border border-white/5"
-                    title="Déconnecter X"
-                  >
-                    <iconify-icon
-                      icon="solar:logout-2-linear"
-                      class="text-lg"
-                    ></iconify-icon>
-                  </button>
-                </div>
               </template>
             </div>
           </div>
 
           <!-- Quick Import Widget -->
           <div
-            class="bg-[#151517] rounded-xl p-1 border border-white/[0.03] flex items-center relative overflow-hidden group focus-within:border-white/10 transition-colors"
+            class="bg-[#14120F] rounded-xl p-1 border border-white/[0.03] flex items-center relative overflow-hidden group focus-within:border-white/10 transition-colors"
           >
             <input
               type="text"
               x-model="addUrls"
               placeholder="Paste link or drop file..."
-              class="w-full bg-transparent border-none outline-none text-sm px-3 py-2 text-[#E5E5EA] placeholder-[#6b6b6b] relative z-10 font-light"
+              class="w-full bg-transparent border-none outline-none text-sm px-3 py-2 text-[#E5E1DB] placeholder-[#6B665F] relative z-10 font-light"
             />
             <div class="flex items-center gap-1 pr-1 relative z-10">
               <button
                 type="button"
                 @click="showAddPanel = !showAddPanel"
-                class="p-1.5 rounded-lg text-[#8E8E93] hover:text-white hover:bg-white/5 transition-colors"
+                class="p-1.5 rounded-lg text-[#8E887F] hover:text-white hover:bg-white/5 transition-colors"
                 title="Upload fichier"
               >
                 <iconify-icon
@@ -337,7 +329,7 @@
               type="file"
               multiple
               @change="addFiles = $event.target.files"
-              class="w-full text-xs text-[#8E8E93] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#2C2C2E] file:text-[#E5E5EA] file:text-xs"
+              class="w-full text-xs text-[#8E887F] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#2C2A26] file:text-[#E5E1DB] file:text-xs"
             />
           </div>
 
@@ -346,15 +338,15 @@
             <button
               type="button"
               @click="filter.verdict = ''"
-              :class="!filter.verdict ? 'bg-white/10 text-white border border-white/5' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+              :class="!filter.verdict ? 'bg-white/10 text-white border border-white/5' : 'bg-transparent hover:bg-white/5 text-[#8E887F]'"
               class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
+              x-text="t('Tout', 'All')"
             >
-              All Items
             </button>
             <button
               type="button"
               @click="filter.verdict = 'SIGNAL'"
-              :class="filter.verdict === 'SIGNAL' ? 'bg-[#34C759]/15 text-[#34C759] border border-[#34C759]/20' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+              :class="filter.verdict === 'SIGNAL' ? 'bg-[#34C759]/15 text-[#34C759] border border-[#34C759]/20' : 'bg-transparent hover:bg-white/5 text-[#8E887F]'"
               class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5"
             >
               <span class="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span> Signal
@@ -366,7 +358,7 @@
             <button
               type="button"
               @click="filter.verdict = 'MIXED'"
-              :class="filter.verdict === 'MIXED' ? 'bg-[#FFCC00]/15 text-[#FFCC00] border border-[#FFCC00]/20' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+              :class="filter.verdict === 'MIXED' ? 'bg-[#FFCC00]/15 text-[#FFCC00] border border-[#FFCC00]/20' : 'bg-transparent hover:bg-white/5 text-[#8E887F]'"
               class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5"
             >
               <span class="w-1.5 h-1.5 rounded-full bg-[#FFCC00]"></span> Mixed
@@ -378,7 +370,7 @@
             <button
               type="button"
               @click="filter.verdict = 'NOISE'"
-              :class="filter.verdict === 'NOISE' ? 'bg-[#FF3B30]/15 text-[#FF3B30] border border-[#FF3B30]/20' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+              :class="filter.verdict === 'NOISE' ? 'bg-[#FF3B30]/15 text-[#FF3B30] border border-[#FF3B30]/20' : 'bg-transparent hover:bg-white/5 text-[#8E887F]'"
               class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5"
             >
               <span class="w-1.5 h-1.5 rounded-full bg-[#FF3B30]"></span> Noise
@@ -390,7 +382,7 @@
             <button
               type="button"
               @click="filter.verdict = 'NONE'"
-              :class="filter.verdict === 'NONE' ? 'bg-white/10 text-white border border-white/5' : 'bg-transparent hover:bg-white/5 text-[#8E8E93]'"
+              :class="filter.verdict === 'NONE' ? 'bg-white/10 text-white border border-white/5' : 'bg-transparent hover:bg-white/5 text-[#8E887F]'"
               class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors"
             >
               Pending
@@ -404,30 +396,31 @@
           <!-- Search bar + sort -->
           <div class="flex items-center gap-2">
             <div
-              class="flex-1 flex items-center bg-[#151517] rounded-lg border border-white/[0.03] px-3 py-1.5"
+              class="flex-1 flex items-center bg-[#14120F] rounded-lg border border-white/[0.03] px-3 py-1.5"
             >
               <iconify-icon
                 icon="solar:magnifier-linear"
-                class="text-[#6b6b6b] mr-2 text-sm"
+                class="text-[#6B665F] mr-2 text-sm"
               ></iconify-icon>
               <input
                 type="text"
                 x-model="filter.search"
                 x-ref="searchInput"
                 placeholder="Rechercher...  ( / )"
-                class="bg-transparent border-none outline-none text-xs text-[#E5E5EA] placeholder-[#6b6b6b] w-full font-light"
+                class="bg-transparent border-none outline-none text-xs text-[#E5E1DB] placeholder-[#6B665F] w-full font-light"
               />
             </div>
             <select
               x-model="sortBy"
-              class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-xs text-[#8E8E93] outline-none"
+              class="bg-[#14120F] border border-white/[0.03] rounded-lg px-2 py-1.5 text-xs text-[#8E887F] outline-none appearance-none cursor-pointer"
+              style="color-scheme: dark"
             >
-              <option value="created_desc">Tweet récent</option>
-              <option value="created_asc">Tweet ancien</option>
-              <option value="fetched_desc">Import récent</option>
-              <option value="fetched_asc">Import ancien</option>
+              <option value="fetched_desc" x-text="t('Import récent', 'Recent import')"></option>
+              <option value="fetched_asc" x-text="t('Import ancien', 'Oldest import')"></option>
+              <option value="created_desc" x-text="t('Tweet récent', 'Recent tweet')"></option>
+              <option value="created_asc" x-text="t('Tweet ancien', 'Oldest tweet')"></option>
               <option value="verdict">Verdict</option>
-              <option value="author">Auteur</option>
+              <option value="author" x-text="t('Auteur', 'Author')"></option>
             </select>
           </div>
 
@@ -437,10 +430,10 @@
               type="button"
               @click="filtersOpen = !filtersOpen"
               class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors"
-              :class="filtersOpen || filter.tag || dateFrom || dateTo ? 'text-[#E85D00] bg-[#E85D00]/10' : 'text-[#8E8E93] hover:text-white hover:bg-white/5'"
+              :class="filtersOpen || filter.tag || dateFrom || dateTo ? 'text-[#E85D00] bg-[#E85D00]/10' : 'text-[#8E887F] hover:text-white hover:bg-white/5'"
             >
               <iconify-icon icon="solar:tuning-2-linear" class="text-sm"></iconify-icon>
-              Filtres
+              <span x-text="t('Filtres', 'Filters')"></span>
               <iconify-icon icon="solar:alt-arrow-down-linear" class="text-[10px]" :class="filtersOpen && 'rotate-180'" style="transition:transform 0.2s"></iconify-icon>
             </button>
             <span
@@ -459,8 +452,8 @@
               <button
                 type="button"
                 @click="open = !open"
-                class="w-full flex items-center justify-between bg-[#151517] border border-white/[0.03] rounded-lg px-3 py-1.5 text-xs text-left transition-colors"
-                :class="filter.tag ? 'text-[#E85D00]' : 'text-[#6b6b6b]'"
+                class="w-full flex items-center justify-between bg-[#14120F] border border-white/[0.03] rounded-lg px-3 py-1.5 text-xs text-left transition-colors"
+                :class="filter.tag ? 'text-[#E85D00]' : 'text-[#6B665F]'"
               >
                 <span class="flex items-center gap-1.5 truncate">
                   <iconify-icon
@@ -479,22 +472,22 @@
                 x-show="open"
                 @click.away="open = false"
                 x-transition
-                class="absolute top-full mt-1 left-0 right-0 bg-[#1C1C1E] border border-white/[0.08] rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto no-scrollbar py-1"
+                class="absolute top-full mt-1 left-0 right-0 bg-[#1C1A17] border border-white/[0.08] rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto no-scrollbar py-1"
               >
                 <button
                   type="button"
                   @click="filter.tag = ''; open = false"
                   class="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-                  :class="!filter.tag ? 'text-[#E85D00]' : 'text-[#8E8E93]'"
+                  :class="!filter.tag ? 'text-[#E85D00]' : 'text-[#8E887F]'"
                 >
-                  Tous les topics
+                  <span x-text="t('Tous les topics', 'All topics')"></span>
                 </button>
                 <template x-for="t in allTags" :key="t">
                   <button
                     type="button"
                     @click="filter.tag = t; open = false"
                     class="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors truncate"
-                    :class="filter.tag === t ? 'text-[#E85D00]' : 'text-[#D1D1D6]'"
+                    :class="filter.tag === t ? 'text-[#E85D00]' : 'text-[#D1CBC4]'"
                     x-text="t"
                   ></button>
                 </template>
@@ -504,14 +497,14 @@
               <input
                 type="date"
                 x-ref="dateFromInput"
-                class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E8E93] outline-none w-[110px] [color-scheme:dark]"
+                class="bg-[#14120F] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E887F] outline-none w-[110px] [color-scheme:dark]"
                 title="Date début"
               />
-              <span class="text-[#6b6b6b] text-[10px]">→</span>
+              <span class="text-[#6B665F] text-[10px]">→</span>
               <input
                 type="date"
                 x-ref="dateToInput"
-                class="bg-[#151517] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E8E93] outline-none w-[110px] [color-scheme:dark]"
+                class="bg-[#14120F] border border-white/[0.03] rounded-lg px-2 py-1.5 text-[10px] text-[#8E887F] outline-none w-[110px] [color-scheme:dark]"
                 title="Date fin"
               />
               <button
@@ -526,7 +519,7 @@
               type="button"
               x-show="filter.tag || dateFrom || dateTo"
               @click="clearDateFilters(); $refs.dateFromInput.value = ''; $refs.dateToInput.value = ''"
-              class="w-7 h-7 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#8E8E93] hover:text-[#FF3B30] border border-white/5 transition-colors shrink-0"
+              class="w-7 h-7 rounded-full bg-[#1C1A17] flex items-center justify-center text-[#8E887F] hover:text-[#FF3B30] border border-white/5 transition-colors shrink-0"
               title="Reset filtres"
             >
               <iconify-icon
@@ -547,7 +540,7 @@
               @click="analyzeBatch(filteredPending)"
               class="px-3 py-1.5 rounded-lg text-xs font-medium text-white btn-primary flex items-center gap-1.5"
             >
-              <span x-text="`Analyser ${filteredPending.length}`"></span>
+              <span x-text="t(`Analyser ${filteredPending.length}`, `Analyze ${filteredPending.length}`)"></span>
             </button>
             <button
               x-show="!analyzing"
@@ -556,7 +549,7 @@
               class="px-3 py-1.5 rounded-lg text-[10px] font-medium text-[#FFCC00] bg-[#FFCC00]/10 border border-[#FFCC00]/20 hover:bg-[#FFCC00]/20 transition-colors"
             >
               <span
-                x-text="(dateFrom || dateTo || filter.tag) ? `Re-analyser ${filtered.length} filtrés` : `Re-analyser tout`"
+                x-text="(dateFrom || dateTo || filter.tag) ? t(`Re-analyser ${filtered.length} filtrés`, `Re-analyze ${filtered.length} filtered`) : t('Re-analyser tout', 'Re-analyze all')"
               ></span>
             </button>
             <div
@@ -573,8 +566,8 @@
               ></span>
             </div>
             <span
-              class="text-[10px] text-[#6b6b6b] ml-auto"
-              x-text="`${filtered.length} résultats`"
+              class="text-[10px] text-[#6B665F] ml-auto"
+              x-text="t(`${filtered.length} résultats`, `${filtered.length} results`)"
             ></span>
           </div>
           </div>
@@ -596,7 +589,7 @@
           >
             <div
               x-show="pullDistance > 10"
-              class="flex items-center gap-2 text-xs text-[#8E8E93]"
+              class="flex items-center gap-2 text-xs text-[#8E887F]"
             >
               <iconify-icon
                 icon="solar:refresh-linear"
@@ -604,7 +597,7 @@
                 :class="pullDistance > 50 ? 'text-[#E85D00]' : ''"
               ></iconify-icon>
               <span
-                x-text="pullDistance > 50 ? 'Relâcher pour rafraîchir' : 'Tirer pour rafraîchir'"
+                x-text="pullDistance > 50 ? t('Relâcher pour rafraîchir', 'Release to refresh') : t('Tirer pour rafraîchir', 'Pull to refresh')"
               ></span>
             </div>
           </div>
@@ -626,15 +619,17 @@
             <template x-for="bm in filtered" :key="bm.tweet_id">
               <div
                 class="p-5 border-b border-white/[0.03] cursor-pointer relative overflow-hidden transition-colors"
-                :class="selectedBm && selectedBm.tweet_id === bm.tweet_id ? 'bg-[#1C1C1E]/40' : 'hover:bg-[#1C1C1E]/20'"
+                :class="{
+                  'bg-[#1C1A17]/40': selectedBm && selectedBm.tweet_id === bm.tweet_id,
+                  'bg-[#34C759]/[0.03] hover:bg-[#34C759]/[0.06]': bm.verdict === 'SIGNAL' && !(selectedBm && selectedBm.tweet_id === bm.tweet_id),
+                  'bg-[#FFCC00]/[0.02] hover:bg-[#FFCC00]/[0.05]': bm.verdict === 'MIXED' && !(selectedBm && selectedBm.tweet_id === bm.tweet_id),
+                  'bg-[#FF3B30]/[0.02] hover:bg-[#FF3B30]/[0.05]': bm.verdict === 'NOISE' && !(selectedBm && selectedBm.tweet_id === bm.tweet_id),
+                  'hover:bg-[#1C1A17]/20': !bm.verdict && !(selectedBm && selectedBm.tweet_id === bm.tweet_id)
+                }"
                 @click="selectedBm = bm"
               >
-                <div
-                  class="absolute left-0 top-0 bottom-0 w-[2px]"
-                  :class="bm.verdict === 'SIGNAL' ? 'bg-[#34C759]' : bm.verdict === 'MIXED' ? 'bg-[#FFCC00]' : bm.verdict === 'NOISE' ? 'bg-[#FF3B30]' : 'bg-transparent'"
-                ></div>
                 <div class="flex justify-between items-start mb-2">
-                  <div class="flex items-center gap-2 text-xs text-[#8E8E93]">
+                  <div class="flex items-center gap-2 text-xs text-[#8E887F]">
                     <iconify-icon
                       :icon="bm.url && bm.url.includes('github') ? 'solar:code-square-linear' : bm.url && bm.url.startsWith('file://') ? 'solar:document-linear' : 'solar:hashtag-linear'"
                       class="text-sm"
@@ -647,27 +642,27 @@
                   </div>
                   <span
                     class="px-2 py-0.5 rounded text-[10px] font-medium tracking-wide uppercase"
-                    :class="bm.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : bm.verdict === 'MIXED' ? 'bg-[#FFCC00]/10 text-[#FFCC00]' : bm.verdict === 'NOISE' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-white/5 text-[#8E8E93]'"
+                    :class="bm.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : bm.verdict === 'MIXED' ? 'bg-[#FFCC00]/10 text-[#FFCC00]' : bm.verdict === 'NOISE' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-white/5 text-[#8E887F]'"
                     x-text="bm.verdict || 'Pending'"
                   >
                   </span>
                 </div>
                 <h3
                   class="text-base font-medium tracking-tight mb-1.5 leading-snug"
-                  :class="selectedBm && selectedBm.tweet_id === bm.tweet_id ? 'text-white' : 'text-[#E5E5EA]'"
+                  :class="selectedBm && selectedBm.tweet_id === bm.tweet_id ? 'text-white' : 'text-[#E5E1DB]'"
                   x-text="getTitle(bm)"
                 ></h3>
                 <p
-                  class="text-sm text-[#8E8E93] line-clamp-2 leading-relaxed font-light"
-                  x-text="bm.translation || bm.summary || (bm.content || '').slice(0, 150)"
+                  class="text-sm text-[#8E887F] line-clamp-2 leading-relaxed font-light"
+                  x-text="[bm.translation, bm.eli5, bm.summary, bm.conclusion].find(s => s && !s.trim().startsWith('{')) || ((/^https?:\/\/\S+$/.test((bm.content||'').trim())) ? bm.url : (bm.content || '').slice(0, 150))"
                 ></p>
-                <div class="flex flex-wrap gap-1.5 mt-2">
+                <div class="hidden md:flex flex-wrap gap-1.5 mt-2">
                   <template
                     x-for="tag in (bm.tags || []).slice(0, 3)"
                     :key="tag"
                   >
                     <span
-                      class="px-2 py-1 rounded bg-white/5 text-xs text-[#A1A1A6]"
+                      class="px-2 py-1 rounded bg-white/5 text-xs text-[#A19B92]"
                       x-text="tag"
                     ></span>
                   </template>
@@ -677,10 +672,10 @@
             <div x-show="filtered.length === 0" class="p-12 text-center">
               <iconify-icon
                 icon="solar:clipboard-remove-linear"
-                class="text-4xl text-[#6b6b6b] mx-auto mb-3"
+                class="text-4xl text-[#6B665F] mx-auto mb-3"
               ></iconify-icon>
-              <p class="text-sm text-[#8E8E93] font-light">
-                Aucun contenu ne correspond aux filtres.
+              <p class="text-sm text-[#8E887F] font-light">
+                <span x-text="t('Aucun contenu ne correspond aux filtres.', 'No content matches the filters.')"></span>
               </p>
             </div>
           </div>
@@ -690,7 +685,7 @@
 
       <!-- ═══ RIGHT COLUMN: Detail / Analysis / Backlog / Brief ═══ -->
       <section
-        class="flex-1 flex flex-col bg-[#09090b] relative z-10 overflow-hidden"
+        class="flex-1 flex flex-col bg-[#0A0907] relative z-10 overflow-hidden"
         :class="{ 'hidden md:flex': !selectedBm && tab === 'bookmarks' }"
       >
         <!-- Toast -->
@@ -699,13 +694,13 @@
           x-transition
           x-cloak
           class="fixed top-4 right-4 z-[100] max-w-sm px-4 py-3 rounded-2xl text-sm shadow-2xl border flex items-start gap-3"
-          :class="toastType === 'error' ? 'bg-[#1C1C1E] border-[#FF3B30]/30 text-[#FF3B30]' : 'bg-[#1C1C1E] border-[#34C759]/30 text-[#34C759]'"
+          :class="toastType === 'error' ? 'bg-[#1C1A17] border-[#FF3B30]/30 text-[#FF3B30]' : 'bg-[#1C1A17] border-[#34C759]/30 text-[#34C759]'"
         >
           <iconify-icon
             :icon="toastType === 'error' ? 'solar:danger-circle-linear' : 'solar:check-circle-linear'"
             class="text-lg shrink-0 mt-0.5"
           ></iconify-icon>
-          <span x-text="toast" class="font-light text-[#E5E5EA]"></span>
+          <span x-text="toast" class="font-light text-[#E5E1DB]"></span>
           <button
             x-show="_toastRetry"
             @click="_toastRetry && _toastRetry(); toast = ''"
@@ -726,58 +721,58 @@
                 <div class="flex justify-center gap-6 mb-10" x-show="counts.signal + counts.mixed + counts.noise > 0">
                   <div class="text-center">
                     <div class="text-2xl font-semibold text-[#34C759]" x-text="counts.signal || 0"></div>
-                    <div class="text-xs text-[#8E8E93] mt-0.5">Signal</div>
+                    <div class="text-xs text-[#8E887F] mt-0.5">Signal</div>
                   </div>
                   <div class="text-center">
                     <div class="text-2xl font-semibold text-[#FFCC00]" x-text="counts.mixed || 0"></div>
-                    <div class="text-xs text-[#8E8E93] mt-0.5">Mixed</div>
+                    <div class="text-xs text-[#8E887F] mt-0.5">Mixed</div>
                   </div>
                   <div class="text-center">
                     <div class="text-2xl font-semibold text-[#FF3B30]" x-text="counts.noise || 0"></div>
-                    <div class="text-xs text-[#8E8E93] mt-0.5">Noise</div>
+                    <div class="text-xs text-[#8E887F] mt-0.5">Noise</div>
                   </div>
                 </div>
 
                 <!-- Onboarding steps -->
                 <div class="space-y-4" x-show="counts.signal + counts.mixed + counts.noise === 0">
-                  <p class="text-lg font-medium text-white text-center mb-6">Pour commencer</p>
-                  <div class="flex items-start gap-4 p-4 rounded-xl bg-[#1C1C1E] border border-white/5">
+                  <p class="text-lg font-medium text-white text-center mb-6" x-text="t('Pour commencer', 'Getting started')"></p>
+                  <div class="flex items-start gap-4 p-4 rounded-xl bg-[#1C1A17] border border-white/5">
                     <div class="w-7 h-7 rounded-full bg-[#E85D00] flex items-center justify-center text-white text-xs font-semibold shrink-0">1</div>
                     <div>
-                      <p class="text-sm font-medium text-white">Colle un lien</p>
-                      <p class="text-xs text-[#8E8E93] mt-0.5">Tweet, article, repo GitHub — dans le champ en haut à gauche</p>
+                      <p class="text-sm font-medium text-white" x-text="t('Colle un lien', 'Paste a link')"></p>
+                      <p class="text-xs text-[#8E887F] mt-0.5" x-text="t('Tweet, article, repo GitHub — dans le champ en haut à gauche', 'Tweet, article, GitHub repo — in the field at the top left')"></p>
                     </div>
                   </div>
-                  <div class="flex items-start gap-4 p-4 rounded-xl bg-[#1C1C1E] border border-white/5">
-                    <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[#8E8E93] text-xs font-semibold shrink-0">2</div>
+                  <div class="flex items-start gap-4 p-4 rounded-xl bg-[#1C1A17] border border-white/5">
+                    <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[#8E887F] text-xs font-semibold shrink-0">2</div>
                     <div>
-                      <p class="text-sm font-medium text-[#D1D1D6]">Ou connecte X</p>
-                      <p class="text-xs text-[#8E8E93] mt-0.5">Importe tes bookmarks Twitter automatiquement</p>
+                      <p class="text-sm font-medium text-[#D1CBC4]" x-text="t('Ou connecte X', 'Or connect X')"></p>
+                      <p class="text-xs text-[#8E887F] mt-0.5" x-text="t('Importe tes bookmarks Twitter automatiquement', 'Import your Twitter bookmarks automatically')"></p>
                     </div>
                   </div>
-                  <div class="flex items-start gap-4 p-4 rounded-xl bg-[#1C1C1E] border border-white/5">
-                    <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[#8E8E93] text-xs font-semibold shrink-0">3</div>
+                  <div class="flex items-start gap-4 p-4 rounded-xl bg-[#1C1A17] border border-white/5">
+                    <div class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[#8E887F] text-xs font-semibold shrink-0">3</div>
                     <div>
-                      <p class="text-sm font-medium text-[#D1D1D6]">Lance l'analyse</p>
-                      <p class="text-xs text-[#8E8E93] mt-0.5">Claude + Exa vérifient chaque contenu et classent Signal / Mixed / Noise</p>
+                      <p class="text-sm font-medium text-[#D1CBC4]" x-text="t('Lance l\'analyse', 'Run the analysis')"></p>
+                      <p class="text-xs text-[#8E887F] mt-0.5" x-text="t('Claude + Exa vérifient chaque contenu et classent Signal / Mixed / Noise', 'Claude + Exa verify each content and classify Signal / Mixed / Noise')"></p>
                     </div>
                   </div>
                 </div>
 
                 <!-- Returning user: pick a content -->
                 <div x-show="counts.signal + counts.mixed + counts.noise > 0" class="text-center space-y-4">
-                  <p class="text-sm text-[#8E8E93]">
-                    Sélectionne un contenu dans la liste
+                  <p class="text-sm text-[#8E887F]">
+                    <span x-text="t('Sélectionne un contenu dans la liste', 'Select a content from the list')"></span>
                   </p>
-                  <div class="flex justify-center gap-4 text-[11px] text-[#6b6b6b]">
-                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span> Signal = haute valeur</span>
-                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#FFCC00]"></span> Mixed = avec réserves</span>
-                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#FF3B30]"></span> Noise = à ignorer</span>
+                  <div class="flex justify-center gap-4 text-[11px] text-[#6B665F]">
+                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span> <span x-text="t('Signal = haute valeur', 'Signal = high value')"></span></span>
+                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#FFCC00]"></span> <span x-text="t('Mixed = avec réserves', 'Mixed = with caveats')"></span></span>
+                    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#FF3B30]"></span> <span x-text="t('Noise = à ignorer', 'Noise = skip')"></span></span>
                   </div>
-                  <p class="text-[11px] text-[#6b6b6b]">
-                    <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">/</kbd> rechercher
-                    · <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">j</kbd><kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">k</kbd> naviguer
-                    · <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">esc</kbd> fermer
+                  <p class="text-[11px] text-[#6B665F]">
+                    <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">/</kbd> <span x-text="t('rechercher', 'search')"></span>
+                    · <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">j</kbd><kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">k</kbd> <span x-text="t('naviguer', 'navigate')"></span>
+                    · <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px]">esc</kbd> <span x-text="t('fermer', 'close')"></span>
                   </p>
                 </div>
               </div>
@@ -788,31 +783,31 @@
               <div class="flex-1 flex flex-col overflow-hidden fade-in">
                 <!-- Detail Header -->
                 <div
-                  class="h-14 border-b border-white/[0.05] flex items-center justify-between px-6 bg-[#09090b] z-20 shrink-0"
+                  class="h-14 border-b border-white/[0.05] flex items-center justify-between px-6 bg-[#0A0907] z-20 shrink-0"
                 >
                   <div class="flex items-center gap-3">
                     <button
                       type="button"
                       @click="selectedBm = null"
-                      class="md:hidden w-8 h-8 rounded-full bg-[#1C1C1E] flex items-center justify-center text-white border border-white/5"
+                      class="md:hidden w-8 h-8 rounded-full bg-[#1C1A17] flex items-center justify-center text-white border border-white/5"
                     >
                       <iconify-icon
                         icon="solar:alt-arrow-left-linear"
                       ></iconify-icon>
                     </button>
-                    <span class="text-sm font-medium text-[#D1D1D6]"
-                      >Analysis Report</span
+                    <span class="text-sm font-medium text-[#D1CBC4]"
+                      x-text="t('Rapport d\'analyse', 'Analysis Report')"></span
                     >
                     <span
                       class="px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide"
-                      :class="selectedBm.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : selectedBm.verdict === 'MIXED' ? 'bg-[#FFCC00]/10 text-[#FFCC00]' : selectedBm.verdict === 'NOISE' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-white/5 text-[#8E8E93]'"
+                      :class="selectedBm.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : selectedBm.verdict === 'MIXED' ? 'bg-[#FFCC00]/10 text-[#FFCC00]' : selectedBm.verdict === 'NOISE' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-white/5 text-[#8E887F]'"
                       x-text="selectedBm.verdict || 'Pending'"
                     ></span>
                     <a
                       :href="selectedBm.url"
                       target="_blank"
                       x-show="selectedBm.url && !selectedBm.url.startsWith('file://')"
-                      class="px-2 py-0.5 rounded text-[10px] font-medium text-[#8E8E93] hover:text-white bg-white/5 border border-white/5 transition-colors flex items-center gap-1"
+                      class="px-2 py-0.5 rounded text-[10px] font-medium text-[#8E887F] hover:text-white bg-white/5 border border-white/5 transition-colors flex items-center gap-1"
                     >
                       <iconify-icon
                         icon="solar:arrow-right-up-linear"
@@ -825,25 +820,25 @@
                     type="button"
                     @click="reanalyze(selectedBm.tweet_id)"
                     :disabled="analyzing"
-                    class="px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium text-[#E5E5EA] hover:bg-white/5 transition-colors disabled:opacity-50"
+                    class="px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium text-[#E5E1DB] hover:bg-white/5 transition-colors disabled:opacity-50"
                   >
-                    Re-analyser
+                    <span x-text="t('Re-analyser', 'Re-analyze')"></span>
                   </button>
                 </div>
 
                 <!-- Content (Scrollable) -->
                 <div
-                  class="flex-1 overflow-y-auto no-scrollbar px-6 lg:px-12 pt-8 pb-[180px] mask-fade-bottom"
+                  class="flex-1 overflow-y-auto no-scrollbar px-4 md:px-6 lg:px-12 pt-6 md:pt-8 pb-[180px] mask-fade-bottom"
                 >
                   <div class="max-w-3xl mx-auto">
                     <!-- Title & Meta -->
-                    <div class="mb-10">
+                    <div class="mb-8 md:mb-10">
                       <h1
-                        class="text-2xl lg:text-3xl font-medium tracking-tight text-white mb-4 leading-tight"
+                        class="text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight text-white mb-3 md:mb-4 leading-tight"
                         x-text="getTitle(selectedBm)"
                       ></h1>
                       <div
-                        class="flex flex-wrap items-center gap-4 text-sm text-[#8E8E93]"
+                        class="flex flex-wrap items-center gap-3 md:gap-4 text-sm text-[#8E887F]"
                       >
                         <span class="flex items-center gap-1.5">
                           <iconify-icon icon="solar:user-linear"></iconify-icon>
@@ -866,266 +861,117 @@
                           <iconify-icon
                             icon="solar:verified-check-linear"
                           ></iconify-icon>
-                          High Signal
+                          <span x-text="t('Signal fort', 'High Signal')"></span>
                         </span>
                       </div>
                       <div class="flex flex-wrap gap-1.5 mt-3">
                         <span
                           x-show="selectedBm.translation"
                           class="px-2 py-0.5 rounded bg-[#E85D00]/10 text-[#E85D00] text-[10px] font-medium border border-[#E85D00]/15"
-                          >FR Traduit</span
+                          x-text="t('FR Traduit', 'FR Translated')"></span
                         >
                         <template
                           x-for="tag in (selectedBm.tags || []).slice(0, 6)"
                           :key="tag"
                         >
                           <span
-                            class="px-2 py-1 rounded bg-white/5 border border-white/5 text-xs text-[#A1A1A6]"
+                            class="px-2 py-1 rounded bg-white/5 border border-white/5 text-xs text-[#A19B92]"
                             x-text="tag"
                           ></span>
                         </template>
                       </div>
                     </div>
 
-                    <!-- AI Analysis Block -->
-                    <div class="flex flex-col gap-8">
-                      <div class="flex flex-col items-start w-full">
-                        <div class="flex items-center gap-2.5 mb-4">
-                          <div
-                            class="w-6 h-6 rounded-full bg-[#E85D00] flex items-center justify-center text-white shadow-sm"
-                          >
-                            <iconify-icon
-                              icon="solar:magic-stick-3-bold"
-                              class="text-[12px]"
-                            ></iconify-icon>
-                          </div>
-                          <span class="text-sm font-medium text-white"
-                            >Deep Analysis</span
-                          >
-                          <span class="text-xs text-[#8E8E93] ml-2 font-light"
-                            >via Claude + Exa</span
-                          >
-                        </div>
-
+                    <!-- AI Analysis Block — 3-tier structure -->
+                    <div class="flex flex-col gap-6">
+                      <div class="flex items-center gap-2.5">
                         <div
-                          class="w-full bg-[#151517] rounded-xl p-6 border border-white/[0.03] space-y-6"
+                          class="w-6 h-6 rounded-full bg-[#E85D00] flex items-center justify-center text-white shadow-sm"
                         >
-                          <!-- Translation (collapsible) -->
-                          <details
-                            x-show="selectedBm.translation"
-                            class="group rounded-xl bg-[#E85D00]/5 border border-[#E85D00]/15 overflow-hidden"
-                          >
-                            <summary
-                              class="px-4 py-3 text-xs font-medium text-[#E85D00] uppercase tracking-widest cursor-pointer hover:bg-[#E85D00]/10 transition-colors flex items-center gap-2 select-none"
-                            >
-                              <iconify-icon
-                                icon="solar:alt-arrow-down-linear"
-                                class="text-sm group-open:rotate-180 transition-transform"
-                              ></iconify-icon>
-                              Traduction FR
-                            </summary>
-                            <div class="px-4 pb-4">
-                              <p
-                                class="text-sm text-[#E5E5EA] font-light leading-relaxed"
-                                x-text="selectedBm.translation"
-                              ></p>
-                            </div>
-                          </details>
+                          <iconify-icon
+                            icon="solar:magic-stick-3-bold"
+                            class="text-[12px]"
+                          ></iconify-icon>
+                        </div>
+                        <span class="text-sm font-medium text-white" x-text="t('Analyse', 'Analysis')"></span>
+                        <span class="text-xs text-[#8E887F] ml-1 font-light">Claude + Exa</span>
+                      </div>
 
-                          <!-- ELI5 Summary (open by default) -->
-                          <div x-show="selectedBm.eli5">
-                            <h2
-                              class="text-base font-medium text-white mb-2 tracking-tight flex items-center gap-2"
-                            >
-                              <iconify-icon
-                                icon="solar:lightbulb-bolt-linear"
-                                class="text-[#FFCC00]"
-                              ></iconify-icon>
-                              ELI5 Summary
-                            </h2>
-                            <p
-                              class="text-sm text-[#A1A1A6] leading-relaxed font-light"
-                              x-text="selectedBm.eli5"
-                            ></p>
-                          </div>
-
-                          <!-- Conclusion (open by default) -->
-                          <div x-show="selectedBm.conclusion">
-                            <h2
-                              class="text-xs font-medium text-[#E85D00] uppercase tracking-widest mb-2"
-                            >
-                              Conclusion
-                            </h2>
-                            <p
-                              class="text-sm text-[#D1D1D6] leading-relaxed font-light"
-                              x-text="selectedBm.conclusion"
-                            ></p>
-                          </div>
-
-                          <!-- Feature Ideas (open by default) -->
-                          <div x-show="selectedBm.feature_ideas">
-                            <h2
-                              class="text-base font-medium text-white mb-3 tracking-tight flex items-center gap-2"
-                            >
-                              <iconify-icon
-                                icon="solar:star-shine-linear"
-                                class="text-[#BF5AF2]"
-                              ></iconify-icon>
-                              Feature Ideas
-                            </h2>
-                            <div
-                              class="p-4 rounded-xl bg-[#BF5AF2]/5 border border-[#BF5AF2]/15"
-                            >
-                              <pre
-                                class="text-sm text-[#E5E5EA] font-light leading-relaxed whitespace-pre-wrap"
-                                x-text="selectedBm.feature_ideas"
-                              ></pre>
-                            </div>
-                          </div>
-
-                          <!-- Claims Check (collapsible) -->
-                          <details
-                            x-show="selectedBm.claims_check && selectedBm.claims_check !== 'N/A'"
-                            class="group rounded-xl border border-white/[0.05] overflow-hidden"
-                          >
-                            <summary
-                              class="px-4 py-3 text-xs font-medium text-[#34C759] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none"
-                            >
-                              <iconify-icon
-                                icon="solar:alt-arrow-down-linear"
-                                class="text-sm group-open:rotate-180 transition-transform"
-                              ></iconify-icon>
-                              <iconify-icon
-                                icon="solar:shield-check-linear"
-                              ></iconify-icon>
-                              Claims Check
-                            </summary>
-                            <div class="px-4 pb-4">
-                              <pre
-                                class="text-xs text-[#8E8E93] font-light bg-[#09090b] rounded-xl p-4 border border-white/[0.05] leading-relaxed"
-                                x-text="selectedBm.claims_check"
-                              ></pre>
-                            </div>
-                          </details>
-
-                          <!-- Red Flags (collapsible) -->
-                          <details
-                            x-show="selectedBm.red_flags && selectedBm.red_flags !== 'Aucun' && selectedBm.red_flags !== 'N/A'"
-                            class="group rounded-xl border border-[#FF3B30]/15 overflow-hidden"
-                          >
-                            <summary
-                              class="px-4 py-3 text-xs font-medium text-[#FF3B30] uppercase tracking-widest cursor-pointer hover:bg-[#FF3B30]/5 transition-colors flex items-center gap-2 select-none"
-                            >
-                              <iconify-icon
-                                icon="solar:alt-arrow-down-linear"
-                                class="text-sm group-open:rotate-180 transition-transform"
-                              ></iconify-icon>
-                              <iconify-icon
-                                icon="solar:danger-circle-linear"
-                              ></iconify-icon>
-                              Red Flags
-                            </summary>
-                            <div class="px-4 pb-4">
-                              <div class="p-4 rounded-xl bg-[#FF3B30]/5">
-                                <p
-                                  class="text-sm text-[#FF3B30]/90 font-light leading-relaxed"
-                                  x-text="selectedBm.red_flags"
-                                ></p>
-                              </div>
-                            </div>
-                          </details>
-
-                          <!-- Extracted Opportunities (collapsible) -->
-                          <details
-                            x-show="selectedBm.actionable && selectedBm.actionable !== 'N/A'"
-                            class="group rounded-xl border border-white/[0.05] overflow-hidden"
-                          >
-                            <summary
-                              class="px-4 py-3 text-xs font-medium text-[#E85D00] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none"
-                            >
-                              <iconify-icon
-                                icon="solar:alt-arrow-down-linear"
-                                class="text-sm group-open:rotate-180 transition-transform"
-                              ></iconify-icon>
-                              <iconify-icon
-                                icon="solar:bolt-linear"
-                              ></iconify-icon>
-                              Extracted Opportunities
-                            </summary>
-                            <div class="px-4 pb-4">
-                              <pre
-                                class="text-sm text-[#E5E5EA] font-light bg-[#09090b] rounded-xl p-4 border border-white/5 leading-relaxed"
-                                x-text="selectedBm.actionable"
-                              ></pre>
-                            </div>
-                          </details>
-
-                          <!-- Repo Analysis (collapsible) -->
-                          <details
-                            x-show="selectedBm.repo_analysis"
-                            class="group rounded-xl border border-white/[0.05] overflow-hidden"
-                          >
-                            <summary
-                              class="px-4 py-3 text-xs font-medium text-[#8E8E93] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none"
-                            >
-                              <iconify-icon
-                                icon="solar:alt-arrow-down-linear"
-                                class="text-sm group-open:rotate-180 transition-transform"
-                              ></iconify-icon>
-                              Repo Analysis
-                            </summary>
-                            <div class="px-4 pb-4">
-                              <pre
-                                class="text-xs text-[#8E8E93] font-light bg-[#09090b] rounded-xl p-3 border border-white/[0.05]"
-                                x-text="selectedBm.repo_analysis"
-                              ></pre>
-                            </div>
-                          </details>
-
-                          <!-- Web Research (collapsible) -->
-                          <details
-                            x-show="selectedBm.web_research_summary"
-                            class="group rounded-xl border border-white/[0.05] overflow-hidden"
-                          >
-                            <summary
-                              class="px-4 py-3 text-xs font-medium text-[#8E8E93] uppercase tracking-widest cursor-pointer hover:bg-white/[0.03] transition-colors flex items-center gap-2 select-none"
-                            >
-                              <iconify-icon
-                                icon="solar:alt-arrow-down-linear"
-                                class="text-sm group-open:rotate-180 transition-transform"
-                              ></iconify-icon>
-                              Web Research
-                            </summary>
-                            <div class="px-4 pb-4">
-                              <pre
-                                class="text-xs text-[#8E8E93] font-light bg-[#09090b] rounded-xl p-3 border border-white/[0.05]"
-                                x-text="selectedBm.web_research_summary"
-                              ></pre>
-                            </div>
-                          </details>
-
-                          <!-- Original Content (collapsible) -->
-                          <details
-                            class="group rounded-xl border border-white/[0.05] overflow-hidden"
-                          >
-                            <summary
-                              class="px-4 py-3 text-xs text-[#6b6b6b] cursor-pointer hover:text-white transition-colors flex items-center gap-2 select-none"
-                            >
-                              <iconify-icon
-                                icon="solar:alt-arrow-down-linear"
-                                class="text-sm group-open:rotate-180 transition-transform"
-                              ></iconify-icon>
-                              Contenu original
-                            </summary>
-                            <div class="px-4 pb-4">
-                              <pre
-                                class="text-xs text-[#6b6b6b] bg-[#0A0A0C] rounded-xl p-4 max-h-48 overflow-auto border border-white/[0.05]"
-                                x-text="selectedBm.content"
-                              ></pre>
-                            </div>
-                          </details>
+                      <!-- ── TIER 1: Digest (always visible) ── -->
+                      <div class="w-full bg-[#14120F] rounded-xl p-5 md:p-6 border border-white/[0.03] space-y-5">
+                        <div x-show="selectedBm.translation" class="rounded-lg bg-[#E85D00]/5 border border-[#E85D00]/10 px-4 py-3">
+                          <p class="text-sm md:text-base text-[#E5E1DB] leading-relaxed" x-text="selectedBm.translation"></p>
+                        </div>
+                        <div x-show="selectedBm.eli5">
+                          <h2 class="text-base md:text-lg font-semibold text-white mb-2 tracking-tight flex items-center gap-2">
+                            <iconify-icon icon="solar:lightbulb-bolt-linear" class="text-[#FFCC00]"></iconify-icon>
+                            <span x-text="t('En bref', 'Summary')"></span>
+                          </h2>
+                          <p class="text-sm md:text-base text-[#D1CBC4] leading-relaxed" x-text="selectedBm.eli5"></p>
+                        </div>
+                        <div x-show="selectedBm.conclusion">
+                          <h2 class="text-sm font-semibold text-[#E85D00] mb-1.5" x-text="t('Conclusion', 'Conclusion')"></h2>
+                          <p class="text-sm md:text-base text-[#D1CBC4] leading-relaxed" x-text="selectedBm.conclusion"></p>
                         </div>
                       </div>
+
+                      <!-- ── TIER 2: Insights (open by default) ── -->
+                      <div class="space-y-4" x-show="selectedBm.feature_ideas || (selectedBm.red_flags && selectedBm.red_flags !== 'Aucun' && selectedBm.red_flags !== 'N/A')">
+                        <div x-show="selectedBm.feature_ideas" class="w-full rounded-xl p-5 bg-[#BF5AF2]/[0.04] border border-[#BF5AF2]/10">
+                          <h2 class="text-base font-semibold text-white mb-3 tracking-tight flex items-center gap-2">
+                            <iconify-icon icon="solar:star-shine-linear" class="text-[#BF5AF2]"></iconify-icon>
+                            <span x-text="t('Idées de features', 'Feature Ideas')"></span>
+                          </h2>
+                          <pre class="text-sm text-[#E5E1DB] font-sans font-light leading-relaxed whitespace-pre-wrap" x-text="selectedBm.feature_ideas"></pre>
+                        </div>
+                        <div x-show="selectedBm.red_flags && selectedBm.red_flags !== 'Aucun' && selectedBm.red_flags !== 'N/A'" class="w-full rounded-xl p-5 bg-[#FF3B30]/[0.04] border border-[#FF3B30]/10">
+                          <h2 class="text-sm font-semibold text-[#FF3B30] mb-2 flex items-center gap-2">
+                            <iconify-icon icon="solar:danger-circle-linear"></iconify-icon>
+                            Red Flags
+                          </h2>
+                          <p class="text-sm text-[#E5E1DB]/80 leading-relaxed" x-text="selectedBm.red_flags"></p>
+                        </div>
+                      </div>
+
+                      <!-- ── TIER 3: Deep Dive (single collapsible) ── -->
+                      <details
+                        x-show="selectedBm.claims_check || selectedBm.actionable || selectedBm.repo_analysis || selectedBm.web_research_summary || selectedBm.content"
+                        class="group w-full rounded-xl border border-white/[0.05] overflow-hidden bg-[#14120F]"
+                      >
+                        <summary class="px-5 py-3.5 text-sm font-medium text-[#8E887F] cursor-pointer hover:text-white transition-colors flex items-center gap-2 select-none">
+                          <iconify-icon icon="solar:alt-arrow-down-linear" class="text-sm group-open:rotate-180 transition-transform"></iconify-icon>
+                          <span x-text="t('Détails complets', 'Full Details')"></span>
+                          <span class="text-xs text-[#6B665F] ml-auto font-light" x-text="t('Claims, opportunités, sources', 'Claims, opportunities, sources')"></span>
+                        </summary>
+                        <div class="px-5 pb-5 space-y-5 border-t border-white/[0.03]">
+                          <div x-show="selectedBm.claims_check && selectedBm.claims_check !== 'N/A'" class="pt-4">
+                            <h3 class="text-xs font-semibold text-[#34C759] mb-2 flex items-center gap-1.5">
+                              <iconify-icon icon="solar:shield-check-linear"></iconify-icon>
+                              <span x-text="t('Vérification des claims', 'Claims Check')"></span>
+                            </h3>
+                            <pre class="text-xs text-[#8E887F] font-sans leading-relaxed whitespace-pre-wrap" x-text="selectedBm.claims_check"></pre>
+                          </div>
+                          <div x-show="selectedBm.actionable && selectedBm.actionable !== 'N/A'">
+                            <h3 class="text-xs font-semibold text-[#E85D00] mb-2 flex items-center gap-1.5">
+                              <iconify-icon icon="solar:bolt-linear"></iconify-icon>
+                              <span x-text="t('Opportunités extraites', 'Extracted Opportunities')"></span>
+                            </h3>
+                            <pre class="text-sm text-[#E5E1DB] font-sans font-light leading-relaxed whitespace-pre-wrap" x-text="selectedBm.actionable"></pre>
+                          </div>
+                          <div x-show="selectedBm.repo_analysis">
+                            <h3 class="text-xs font-semibold text-[#8E887F] mb-2" x-text="t('Analyse du repo', 'Repo Analysis')"></h3>
+                            <pre class="text-xs text-[#8E887F] font-sans leading-relaxed whitespace-pre-wrap" x-text="selectedBm.repo_analysis"></pre>
+                          </div>
+                          <div x-show="selectedBm.web_research_summary">
+                            <h3 class="text-xs font-semibold text-[#8E887F] mb-2" x-text="t('Recherche web', 'Web Research')"></h3>
+                            <pre class="text-xs text-[#8E887F] font-sans leading-relaxed whitespace-pre-wrap" x-text="selectedBm.web_research_summary"></pre>
+                          </div>
+                          <div class="pt-2 border-t border-white/[0.03]">
+                            <h3 class="text-xs text-[#6B665F] mb-2" x-text="t('Contenu original', 'Original Content')"></h3>
+                            <pre class="text-xs text-[#6B665F] bg-[#0B0A08] rounded-lg p-3 max-h-48 overflow-auto border border-white/[0.03]" x-text="selectedBm.content"></pre>
+                          </div>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 </div>
@@ -1153,10 +999,10 @@
                     class="max-w-3xl mx-auto px-6 pb-8 pt-4 pointer-events-auto"
                   >
                     <div
-                      class="bg-[#1C1C1E] rounded-xl p-2 pl-4 flex items-center justify-between border border-white/[0.08] shadow-2xl relative"
+                      class="bg-[#1C1A17] rounded-xl p-2 pl-4 flex items-center justify-between border border-white/[0.08] shadow-2xl relative"
                     >
                       <div
-                        class="flex items-center gap-2 text-[#8E8E93] flex-1"
+                        class="flex items-center gap-2 text-[#8E887F] flex-1"
                       >
                         <iconify-icon
                           icon="solar:document-add-linear"
@@ -1165,8 +1011,8 @@
                         <input
                           type="text"
                           x-model="briefRequest"
-                          placeholder="Décris un projet pour générer un brief..."
-                          class="bg-transparent border-none outline-none text-sm text-white placeholder-[#6b6b6b] w-full font-light"
+                          :placeholder="t('Décris un projet pour générer un brief...', 'Describe a project to generate a brief...')"
+                          class="bg-transparent border-none outline-none text-sm text-white placeholder-[#6B665F] w-full font-light"
                         />
                       </div>
                       <button
@@ -1210,10 +1056,10 @@
           >
             <div class="max-w-3xl mx-auto space-y-6">
               <div class="mb-8">
-                <h1 class="text-2xl font-medium tracking-tight text-white mb-2">
+                <h1 class="text-2xl font-medium tracking-tight text-white mb-2" x-text="t('Backlog d\'idées', 'Ideas Backlog')">
                   Backlog d'idées
                 </h1>
-                <p class="text-sm text-[#8E8E93] font-light">
+                <p class="text-sm text-[#8E887F] font-light" x-text="t('Idées extraites des analyses, groupées par projet et triées par score d\'opportunité.', 'Ideas extracted from analyses, grouped by project and sorted by opportunity score.')">
                   Idées extraites des analyses, groupées par projet et triées
                   par score d'opportunité.
                 </p>
@@ -1221,13 +1067,13 @@
 
               <template x-if="Object.keys(backlogProjects).length === 0">
                 <div
-                  class="text-center py-16 text-[#8E8E93] font-light border border-dashed border-white/[0.08] rounded-2xl bg-[#151517]/50"
+                  class="text-center py-16 text-[#8E887F] font-light border border-dashed border-white/[0.08] rounded-2xl bg-[#14120F]/50"
                 >
                   <iconify-icon
                     icon="solar:checklist-minimalistic-linear"
-                    class="text-4xl text-[#6b6b6b] mx-auto mb-3"
+                    class="text-4xl text-[#6B665F] mx-auto mb-3"
                   ></iconify-icon>
-                  <p>
+                  <p x-text="t('Aucune idée pour l\'instant — lance des analyses avec des actions concrètes.', 'No ideas yet — run analyses with concrete actions.')">
                     Aucune idée pour l'instant — lance des analyses avec des
                     actions concrètes.
                   </p>
@@ -1240,19 +1086,18 @@
                   :key="project"
                 >
                   <div
-                    class="rounded-2xl border border-white/[0.05] bg-[#151517] overflow-hidden"
+                    class="rounded-2xl border border-white/[0.05] bg-[#14120F] overflow-hidden"
                   >
                     <div
-                      class="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3 bg-[#1C1C1E]/40"
+                      class="px-5 py-4 border-b border-white/[0.05] flex items-center gap-3 bg-[#1C1A17]/40"
                     >
-                      <div class="w-1 h-5 bg-[#E85D00] rounded-full"></div>
                       <span
-                        class="text-base font-medium text-white tracking-tight"
+                        class="text-base font-semibold text-white tracking-tight"
                         x-text="project"
                       ></span>
                       <span
                         class="px-2 py-0.5 rounded text-[10px] font-medium bg-[#E85D00]/10 text-[#E85D00] ml-auto"
-                        x-text="`${ideas.length} idées`"
+                        x-text="t(`${ideas.length} idées`, `${ideas.length} ideas`)"
                       ></span>
                     </div>
                     <div class="divide-y divide-white/[0.05]">
@@ -1262,17 +1107,17 @@
                         >
                           <div
                             class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold"
-                            :class="idea.score >= 7 ? 'bg-[#34C759]/15 text-[#34C759]' : idea.score >= 4 ? 'bg-[#FFCC00]/15 text-[#FFCC00]' : 'bg-white/5 text-[#8E8E93]'"
+                            :class="idea.score >= 7 ? 'bg-[#34C759]/15 text-[#34C759]' : idea.score >= 4 ? 'bg-[#FFCC00]/15 text-[#FFCC00]' : 'bg-white/5 text-[#8E887F]'"
                             x-text="idea.score"
                           ></div>
                           <div class="min-w-0 flex-1">
                             <p
-                              class="text-sm text-[#E5E5EA] font-light leading-relaxed"
+                              class="text-sm text-[#E5E1DB] font-light leading-relaxed"
                               x-text="idea.text"
                             ></p>
                             <div class="flex flex-wrap items-center gap-3 mt-2">
                               <span
-                                class="text-[10px] text-[#6b6b6b]"
+                                class="text-[10px] text-[#6B665F]"
                                 x-text="'@' + idea.author"
                               ></span>
                               <span
@@ -1312,32 +1157,25 @@
             <div class="max-w-3xl mx-auto space-y-8">
               <!-- Brief Generator -->
               <div
-                class="rounded-3xl border border-white/[0.06] bg-[#1C1C1E] p-6 lg:p-8 relative overflow-hidden"
+                class="rounded-3xl border border-white/[0.06] bg-[#1C1A17] p-6 lg:p-8 relative overflow-hidden"
               >
                 <div class="relative z-10 space-y-4">
-                  <div class="flex items-center gap-2 mb-1">
-                    <div class="w-1 h-4 bg-[#E85D00] rounded-full"></div>
-                    <h2 class="text-lg font-medium tracking-tight text-white">
-                      Générateur de brief
-                    </h2>
-                  </div>
-                  <label class="text-xs font-medium text-[#8E8E93] block"
-                    >Décris ce que tu veux construire</label
-                  >
+                  <h2 class="text-lg font-semibold tracking-tight text-white mb-1" x-text="t('Générateur de brief', 'Brief Generator')"></h2>
+                  <label class="text-xs font-medium text-[#8E887F] block" x-text="t('Décris ce que tu veux construire', 'Describe what you want to build')"></label>
                   <textarea
                     x-model="briefRequest"
                     rows="3"
-                    placeholder="Ex. orchestrateur multi-agents pour le support…"
-                    class="w-full bg-[#09090b] border border-white/[0.08] rounded-2xl px-4 py-3 text-sm text-[#E5E5EA] placeholder-[#6b6b6b] outline-none focus:border-white/20 resize-none font-light"
+                    :placeholder="t('Ex. orchestrateur multi-agents pour le support…', 'E.g. multi-agent orchestrator for support…')"
+                    class="w-full bg-[#0A0907] border border-white/[0.08] rounded-2xl px-4 py-3 text-sm text-[#E5E1DB] placeholder-[#6B665F] outline-none focus:border-white/20 resize-none font-light"
                   ></textarea>
                   <div class="flex flex-wrap items-center gap-3">
                     <select
                       x-model="briefQuality"
-                      class="bg-[#151517] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-[#E5E5EA]"
+                      class="bg-[#14120F] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-[#E5E1DB]"
                     >
-                      <option value="3">Signal seulement</option>
-                      <option value="2">Signal + Mixed</option>
-                      <option value="1">Tout</option>
+                      <option value="3" x-text="t('Signal seulement', 'Signal only')"></option>
+                      <option value="2" x-text="t('Signal + Mixed', 'Signal + Mixed')"></option>
+                      <option value="1" x-text="t('Tout', 'All')"></option>
                     </select>
                     <button
                       type="button"
@@ -1348,7 +1186,7 @@
                       <span
                         x-show="!generatingBrief"
                         class="flex items-center gap-2"
-                        >Générer
+                        ><span x-text="t('Générer', 'Generate')"></span>
                         <iconify-icon
                           icon="solar:arrow-right-linear"
                         ></iconify-icon
@@ -1366,7 +1204,7 @@
               <!-- Current Brief Output -->
               <template x-if="currentBrief && !currentBrief.error">
                 <div
-                  class="rounded-2xl border border-white/[0.06] bg-[#151517] overflow-hidden"
+                  class="rounded-2xl border border-white/[0.06] bg-[#14120F] overflow-hidden"
                 >
                   <div
                     class="px-6 py-5 border-b border-white/[0.05] bg-[#E85D00]/5"
@@ -1376,7 +1214,7 @@
                       x-text="currentBrief.project_name || 'Brief'"
                     ></h3>
                     <p
-                      class="text-sm text-[#8E8E93] font-light mt-1"
+                      class="text-sm text-[#8E887F] font-light mt-1"
                       x-text="currentBrief.objective"
                     ></p>
                   </div>
@@ -1384,12 +1222,12 @@
                     <template x-if="currentBrief.tech_stack_suggestion">
                       <div>
                         <div
-                          class="text-xs font-medium text-[#E85D00] uppercase tracking-widest mb-1"
+                          class="text-xs font-medium text-[#E85D00] uppercase tracking-wide mb-1"
                         >
                           Stack
                         </div>
                         <p
-                          class="text-sm text-[#D1D1D6] font-light"
+                          class="text-sm text-[#D1CBC4] font-light"
                           x-text="currentBrief.tech_stack_suggestion"
                         ></p>
                       </div>
@@ -1397,12 +1235,12 @@
                     <template x-if="currentBrief.architecture_notes">
                       <div>
                         <div
-                          class="text-xs font-medium text-[#8E8E93] uppercase tracking-widest mb-1"
+                          class="text-xs font-medium text-[#8E887F] uppercase tracking-wide mb-1"
                         >
                           Architecture
                         </div>
                         <p
-                          class="text-sm text-[#D1D1D6] font-light"
+                          class="text-sm text-[#D1CBC4] font-light"
                           x-text="currentBrief.architecture_notes"
                         ></p>
                       </div>
@@ -1412,10 +1250,9 @@
                     >
                       <div>
                         <div
-                          class="text-xs font-medium text-[#34C759] uppercase tracking-widest mb-2"
-                        >
-                          Ressources
-                        </div>
+                          class="text-xs font-medium text-[#34C759] uppercase tracking-wide mb-2"
+                          x-text="t('Ressources', 'Resources')"
+                        ></div>
                         <div class="space-y-2">
                           <template
                             x-for="res in currentBrief.relevant_resources"
@@ -1436,7 +1273,7 @@
                                 x-text="res.title"
                               ></a>
                               <span
-                                class="text-xs text-[#6b6b6b] truncate"
+                                class="text-xs text-[#6B665F] truncate"
                                 x-text="res.why"
                               ></span>
                             </div>
@@ -1448,11 +1285,9 @@
                       <div
                         class="p-4 rounded-xl bg-[#FF3B30]/10 border border-[#FF3B30]/20"
                       >
-                        <div class="text-xs font-medium text-[#FF3B30] mb-1">
-                          Risques
-                        </div>
+                        <div class="text-xs font-medium text-[#FF3B30] mb-1" x-text="t('Risques', 'Risks')"></div>
                         <p
-                          class="text-sm text-[#E5E5EA] font-light"
+                          class="text-sm text-[#E5E1DB] font-light"
                           x-text="currentBrief.risks"
                         ></p>
                       </div>
@@ -1462,12 +1297,11 @@
                     >
                       <div>
                         <div
-                          class="text-xs font-medium text-[#FFCC00] uppercase tracking-widest mb-2"
-                        >
-                          Prochaines étapes
-                        </div>
+                          class="text-xs font-medium text-[#FFCC00] uppercase tracking-wide mb-2"
+                          x-text="t('Prochaines étapes', 'Next Steps')"
+                        ></div>
                         <ol
-                          class="text-sm text-[#D1D1D6] font-light list-decimal list-inside space-y-1"
+                          class="text-sm text-[#D1CBC4] font-light list-decimal list-inside space-y-1"
                         >
                           <template
                             x-for="(step, i) in currentBrief.next_steps"
@@ -1483,7 +1317,7 @@
                         <button
                           type="button"
                           @click="briefPromptTab = 'cursor'"
-                          :class="briefPromptTab === 'cursor' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                          :class="briefPromptTab === 'cursor' ? 'bg-[#2C2A26] text-white border border-white/10' : 'text-[#8E887F] border border-transparent'"
                           class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                         >
                           Cursor
@@ -1491,7 +1325,7 @@
                         <button
                           type="button"
                           @click="briefPromptTab = 'claude'"
-                          :class="briefPromptTab === 'claude' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                          :class="briefPromptTab === 'claude' ? 'bg-[#2C2A26] text-white border border-white/10' : 'text-[#8E887F] border border-transparent'"
                           class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                         >
                           Claude Code
@@ -1499,16 +1333,15 @@
                       </div>
                       <div class="relative">
                         <pre
-                          class="text-xs text-[#D1D1D6] font-mono bg-[#0A0A0C] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
+                          class="text-xs text-[#D1CBC4] font-mono bg-[#0B0A08] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
                           x-text="briefPromptTab === 'cursor' ? currentBrief.cursor_prompt : currentBrief.claude_code_prompt"
                         ></pre>
                         <button
                           type="button"
                           @click="copyToClipboard(briefPromptTab === 'cursor' ? currentBrief.cursor_prompt : currentBrief.claude_code_prompt)"
-                          class="absolute top-2 right-2 px-3 py-1 rounded-lg text-xs font-medium bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA] hover:bg-white/5"
-                        >
-                          Copier
-                        </button>
+                          class="absolute top-2 right-2 px-3 py-1 rounded-lg text-xs font-medium bg-[#1C1A17] border border-white/[0.08] text-[#E5E1DB] hover:bg-white/5"
+                          x-text="t('Copier', 'Copy')"
+                        ></button>
                       </div>
                     </div>
                     <!-- Brief Chat Button -->
@@ -1519,7 +1352,7 @@
                         class="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#E85D00]/15 border border-[#E85D00]/30 hover:border-[#E85D00]/50 flex items-center gap-2 transition-all"
                       >
                         <iconify-icon icon="solar:chat-round-dots-linear" class="text-lg text-[#E85D00]"></iconify-icon>
-                        Discuter & améliorer ce brief
+                        <span x-text="t('Discuter & améliorer ce brief', 'Discuss & improve this brief')"></span>
                       </button>
                     </div>
                   </div>
@@ -1529,14 +1362,14 @@
               <!-- Brief History -->
               <div x-show="briefs.length > 0">
                 <h3
-                  class="text-xs font-medium text-[#8E8E93] uppercase tracking-widest mb-3"
+                  class="text-xs font-medium text-[#8E887F] uppercase tracking-wide mb-3"
                 >
-                  Historique
+                  <span x-text="t('Historique', 'History')"></span>
                 </h3>
                 <div class="space-y-2">
                   <template x-for="brief in briefs" :key="brief.id">
                     <div
-                      class="rounded-xl border border-white/[0.06] bg-[#151517] overflow-hidden"
+                      class="rounded-xl border border-white/[0.06] bg-[#14120F] overflow-hidden"
                     >
                       <div
                         class="p-4 flex items-center justify-between cursor-pointer hover:bg-white/[0.02]"
@@ -1553,7 +1386,7 @@
                               x-text="brief.data.project_name || brief.request.slice(0, 50)"
                             ></span>
                             <span
-                              class="text-[10px] text-[#6b6b6b]"
+                              class="text-[10px] text-[#6B665F]"
                               x-text="brief.created_at ? brief.created_at.slice(0, 10) : ''"
                             ></span>
                           </div>
@@ -1563,12 +1396,11 @@
                             type="button"
                             @click.stop="deleteBrief(brief.id)"
                             class="text-[10px] text-[#FF3B30] hover:underline px-2"
-                          >
-                            Supprimer
-                          </button>
+                            x-text="t('Supprimer', 'Delete')"
+                          ></button>
                           <iconify-icon
                             icon="solar:alt-arrow-down-linear"
-                            class="text-[#6b6b6b] transition-transform"
+                            class="text-[#6B665F] transition-transform"
                             :class="brief._open && 'rotate-180'"
                           ></iconify-icon>
                         </div>
@@ -1576,29 +1408,29 @@
                       <div
                         x-show="brief._open"
                         x-transition
-                        class="border-t border-white/[0.05] p-5 space-y-4 bg-[#09090b]/50"
+                        class="border-t border-white/[0.05] p-5 space-y-4 bg-[#0A0907]/50"
                       >
-                        <p class="text-xs text-[#8E8E93] font-light">
-                          <span class="text-[#6b6b6b]">Demande · </span><span x-text="brief.request"></span>
+                        <p class="text-xs text-[#8E887F] font-light">
+                          <span class="text-[#6B665F]" x-text="t('Demande · ', 'Request · ')"></span><span x-text="brief.request"></span>
                         </p>
                         <template x-if="brief.data.objective">
-                          <p class="text-sm text-[#D1D1D6] font-light" x-text="brief.data.objective"></p>
+                          <p class="text-sm text-[#D1CBC4] font-light" x-text="brief.data.objective"></p>
                         </template>
                         <template x-if="brief.data.tech_stack_suggestion">
                           <div>
-                            <div class="text-xs font-medium text-[#E85D00] uppercase tracking-widest mb-1">Stack</div>
-                            <p class="text-sm text-[#D1D1D6] font-light" x-text="brief.data.tech_stack_suggestion"></p>
+                            <div class="text-xs font-medium text-[#E85D00] uppercase tracking-wide mb-1">Stack</div>
+                            <p class="text-sm text-[#D1CBC4] font-light" x-text="brief.data.tech_stack_suggestion"></p>
                           </div>
                         </template>
                         <template x-if="brief.data.architecture_notes">
                           <div>
-                            <div class="text-xs font-medium text-[#8E8E93] uppercase tracking-widest mb-1">Architecture</div>
-                            <p class="text-sm text-[#D1D1D6] font-light" x-text="brief.data.architecture_notes"></p>
+                            <div class="text-xs font-medium text-[#8E887F] uppercase tracking-wide mb-1">Architecture</div>
+                            <p class="text-sm text-[#D1CBC4] font-light" x-text="brief.data.architecture_notes"></p>
                           </div>
                         </template>
                         <template x-if="brief.data.relevant_resources && brief.data.relevant_resources.length">
                           <div>
-                            <div class="text-xs font-medium text-[#34C759] uppercase tracking-widest mb-2">Ressources</div>
+                            <div class="text-xs font-medium text-[#34C759] uppercase tracking-wide mb-2" x-text="t('Ressources', 'Resources')"></div>
                             <div class="space-y-2">
                               <template x-for="res in brief.data.relevant_resources" :key="res.url">
                                 <div class="flex items-center gap-2 text-sm flex-wrap">
@@ -1606,7 +1438,7 @@
                                     :class="res.verdict === 'SIGNAL' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FFCC00]/10 text-[#FFCC00]'"
                                     x-text="res.verdict"></span>
                                   <a :href="res.url" target="_blank" class="text-[#E85D00] hover:underline truncate max-w-[200px]" x-text="res.title"></a>
-                                  <span class="text-xs text-[#6b6b6b] truncate" x-text="res.why"></span>
+                                  <span class="text-xs text-[#6B665F] truncate" x-text="res.why"></span>
                                 </div>
                               </template>
                             </div>
@@ -1614,14 +1446,14 @@
                         </template>
                         <template x-if="brief.data.risks">
                           <div class="p-4 rounded-xl bg-[#FF3B30]/10 border border-[#FF3B30]/20">
-                            <div class="text-xs font-medium text-[#FF3B30] mb-1">Risques</div>
-                            <p class="text-sm text-[#E5E5EA] font-light" x-text="brief.data.risks"></p>
+                            <div class="text-xs font-medium text-[#FF3B30] mb-1" x-text="t('Risques', 'Risks')"></div>
+                            <p class="text-sm text-[#E5E1DB] font-light" x-text="brief.data.risks"></p>
                           </div>
                         </template>
                         <template x-if="brief.data.next_steps && brief.data.next_steps.length">
                           <div>
-                            <div class="text-xs font-medium text-[#FFCC00] uppercase tracking-widest mb-2">Prochaines étapes</div>
-                            <ol class="text-sm text-[#D1D1D6] font-light list-decimal list-inside space-y-1">
+                            <div class="text-xs font-medium text-[#FFCC00] uppercase tracking-wide mb-2" x-text="t('Prochaines étapes', 'Next Steps')"></div>
+                            <ol class="text-sm text-[#D1CBC4] font-light list-decimal list-inside space-y-1">
                               <template x-for="(step, i) in brief.data.next_steps" :key="i">
                                 <li x-text="step"></li>
                               </template>
@@ -1631,25 +1463,25 @@
                         <div class="pt-3 border-t border-white/[0.06]" x-data="{ promptTab: 'cursor' }">
                           <div class="flex gap-2 mb-3">
                             <button type="button" @click="promptTab = 'cursor'"
-                              :class="promptTab === 'cursor' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                              :class="promptTab === 'cursor' ? 'bg-[#2C2A26] text-white border border-white/10' : 'text-[#8E887F] border border-transparent'"
                               class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Cursor</button>
                             <button type="button" @click="promptTab = 'claude'"
-                              :class="promptTab === 'claude' ? 'bg-[#2C2C2E] text-white border border-white/10' : 'text-[#8E8E93] border border-transparent'"
+                              :class="promptTab === 'claude' ? 'bg-[#2C2A26] text-white border border-white/10' : 'text-[#8E887F] border border-transparent'"
                               class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Claude Code</button>
                           </div>
                           <div class="relative">
-                            <pre class="text-xs text-[#D1D1D6] font-mono bg-[#0A0A0C] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
+                            <pre class="text-xs text-[#D1CBC4] font-mono bg-[#0B0A08] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-auto leading-relaxed"
                               x-text="promptTab === 'cursor' ? brief.data.cursor_prompt : brief.data.claude_code_prompt"></pre>
                             <button type="button"
                               @click="copyToClipboard(promptTab === 'cursor' ? brief.data.cursor_prompt : brief.data.claude_code_prompt)"
-                              class="absolute top-2 right-2 px-3 py-1 rounded-lg text-xs font-medium bg-[#1C1C1E] border border-white/[0.08] text-[#E5E5EA] hover:bg-white/5">Copier</button>
+                              class="absolute top-2 right-2 px-3 py-1 rounded-lg text-xs font-medium bg-[#1C1A17] border border-white/[0.08] text-[#E5E1DB] hover:bg-white/5" x-text="t('Copier', 'Copy')"></button>
                           </div>
                         </div>
                         <div class="flex gap-2 flex-wrap pt-2">
                           <button type="button" @click="openBriefChat(brief)"
                             class="px-3 py-1.5 rounded-lg text-xs bg-[#E85D00]/10 border border-[#E85D00]/20 text-[#E85D00] hover:bg-[#E85D00]/20 transition-colors flex items-center gap-1.5">
                             <iconify-icon icon="solar:chat-round-dots-linear" class="text-sm"></iconify-icon>
-                            Discuter & améliorer
+                            <span x-text="t('Discuter & améliorer', 'Discuss & improve')"></span>
                           </button>
                         </div>
                       </div>
@@ -1657,6 +1489,134 @@
                   </template>
                 </div>
               </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Settings View ── -->
+        <template x-if="tab === 'settings' && !selectedBm">
+          <div class="flex-1 overflow-y-auto no-scrollbar px-4 md:px-6 lg:px-12 py-6 md:py-8 pb-24 md:pb-8 fade-in">
+            <div class="max-w-lg mx-auto space-y-6">
+
+              <h1 class="text-xl font-semibold tracking-tight text-white" x-text="t('Réglages', 'Settings')"></h1>
+
+              <!-- Connexion X -->
+              <div class="rounded-2xl border border-white/[0.06] bg-[#1C1A17] p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-[#0B0A08] flex items-center justify-center border border-white/5">
+                      <iconify-icon icon="ri:twitter-x-fill" class="text-white text-base"></iconify-icon>
+                    </div>
+                    <div>
+                      <div class="text-sm font-medium text-white" x-text="t('Compte X', 'X Account')"></div>
+                      <div class="text-xs text-[#8E887F]" x-text="connected ? t('Connecté', 'Connected') : t('Non connecté', 'Not connected')"></div>
+                    </div>
+                  </div>
+                  <span
+                    class="w-2.5 h-2.5 rounded-full shrink-0"
+                    :class="connected ? 'bg-[#34C759]' : 'bg-[#FF3B30]'"
+                  ></span>
+                </div>
+
+                <template x-if="!connected">
+                  <button
+                    type="button"
+                    @click="connectX()"
+                    class="w-full py-2.5 rounded-xl text-sm font-medium text-white btn-primary flex items-center justify-center gap-2"
+                  >
+                    <iconify-icon icon="solar:link-circle-linear" class="text-base"></iconify-icon>
+                    <span x-text="t('Connecter mon compte X', 'Connect my X account')"></span>
+                  </button>
+                </template>
+
+                <template x-if="connected">
+                  <div class="space-y-2">
+                    <button
+                      type="button"
+                      @click="importBookmarks()"
+                      :disabled="importing"
+                      class="w-full py-2.5 rounded-xl text-sm font-medium text-white bg-[#1C1A17] border border-white/[0.08] hover:bg-[#2C2A26] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <span x-show="!importing" class="flex items-center gap-2">
+                        <iconify-icon icon="solar:download-minimalistic-linear" class="text-base"></iconify-icon>
+                        <span x-text="t('Importer mes bookmarks', 'Import my bookmarks')"></span>
+                      </span>
+                      <span x-show="importing" class="flex items-center gap-2">
+                        <span class="spinner"></span>
+                        <span x-text="t('Import en cours...', 'Importing...')"></span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      @click="if (confirm(t('Déconnecter ton compte X ?', 'Disconnect your X account?'))) disconnectX()"
+                      class="w-full py-2.5 rounded-xl text-sm font-medium text-[#8E887F] hover:text-[#FF3B30] bg-[#14120F] border border-white/[0.04] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <iconify-icon icon="solar:logout-2-linear" class="text-base"></iconify-icon>
+                      <span x-text="t('Déconnecter', 'Disconnect')"></span>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Langue -->
+              <div class="rounded-2xl border border-white/[0.06] bg-[#1C1A17] p-5 space-y-4">
+                <div>
+                  <div class="text-sm font-medium text-white" x-text="t('Langue d\'affichage', 'Display language')"></div>
+                  <div class="text-xs text-[#8E887F] mt-0.5" x-text="t('Change la langue de l\'interface', 'Changes the interface language')"></div>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    @click="setLang('fr')"
+                    :class="lang === 'fr' ? 'bg-[#E85D00]/15 text-[#E85D00] border-[#E85D00]/30' : 'bg-[#14120F] text-[#8E887F] border-white/[0.04] hover:bg-[#2C2A26]'"
+                    class="flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>🇫🇷</span>
+                    <span>Français</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="setLang('en')"
+                    :class="lang === 'en' ? 'bg-[#E85D00]/15 text-[#E85D00] border-[#E85D00]/30' : 'bg-[#14120F] text-[#8E887F] border-white/[0.04] hover:bg-[#2C2A26]'"
+                    class="flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>🇬🇧</span>
+                    <span>English</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Infos -->
+              <div class="rounded-2xl border border-white/[0.06] bg-[#1C1A17] p-5 space-y-3">
+                <div class="text-sm font-medium text-white" x-text="t('Informations', 'Information')"></div>
+                <div class="space-y-2 text-xs">
+                  <div class="flex justify-between py-1.5 border-b border-white/[0.04]">
+                    <span class="text-[#8E887F]" x-text="t('Bookmarks', 'Bookmarks')"></span>
+                    <span class="text-[#D1CBC4]" x-text="stats.total_bookmarks || 0"></span>
+                  </div>
+                  <div class="flex justify-between py-1.5 border-b border-white/[0.04]">
+                    <span class="text-[#8E887F]" x-text="t('Analysés', 'Analyzed')"></span>
+                    <span class="text-[#D1CBC4]" x-text="stats.analyzed || 0"></span>
+                  </div>
+                  <div class="flex justify-between py-1.5 border-b border-white/[0.04]">
+                    <span class="text-[#8E887F]">Signal</span>
+                    <span class="text-[#34C759]" x-text="counts.SIGNAL || 0"></span>
+                  </div>
+                  <div class="flex justify-between py-1.5 border-b border-white/[0.04]">
+                    <span class="text-[#8E887F]">Noise</span>
+                    <span class="text-[#FF3B30]" x-text="counts.NOISE || 0"></span>
+                  </div>
+                  <div class="flex justify-between py-1.5">
+                    <span class="text-[#8E887F]">Mixed</span>
+                    <span class="text-[#FFCC00]" x-text="counts.MIXED || 0"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-center text-[10px] text-[#6B665F] pt-2">
+                SGNL Analyzer v1.0
+              </div>
+
             </div>
           </div>
         </template>
@@ -1672,12 +1632,12 @@
       x-transition:leave="transition ease-in duration-150"
       x-transition:leave-start="translate-x-0"
       x-transition:leave-end="translate-x-full"
-      class="fixed inset-y-0 right-0 w-full md:w-[440px] bg-[#0a0a0c] border-l border-white/[0.05] z-[60] flex flex-col shadow-2xl"
+      class="fixed inset-y-0 right-0 w-full md:w-[440px] bg-[#0B0A08] border-l border-white/[0.05] z-[60] flex flex-col shadow-2xl"
       x-cloak
     >
       <!-- Chat Header -->
       <div
-        class="h-14 border-b border-white/[0.05] flex items-center justify-between px-5 bg-[#0a0a0c] shrink-0"
+        class="h-14 border-b border-white/[0.05] flex items-center justify-between px-5 bg-[#0B0A08] shrink-0"
       >
         <div class="flex items-center gap-2.5">
           <div
@@ -1690,14 +1650,14 @@
           </div>
           <span class="text-sm font-medium text-white">Chat</span>
           <span
-            class="text-xs text-[#6b6b6b] font-light truncate max-w-[200px]"
+            class="text-xs text-[#6B665F] font-light truncate max-w-[200px]"
             x-text="chatMode === 'brief' ? ('Brief · ' + (chatBriefData?.project_name || '').slice(0, 30)) : (selectedBm ? getTitle(selectedBm).slice(0, 40) : '')"
           ></span>
         </div>
         <button
           type="button"
           @click="chatOpen = false"
-          class="w-8 h-8 rounded-full bg-[#1C1C1E] flex items-center justify-center text-[#8E8E93] hover:text-white border border-white/5 transition-colors"
+          class="w-8 h-8 rounded-full bg-[#1C1A17] flex items-center justify-center text-[#8E887F] hover:text-white border border-white/5 transition-colors"
         >
           <iconify-icon icon="solar:close-circle-linear"></iconify-icon>
         </button>
@@ -1711,8 +1671,8 @@
         <!-- System context note -->
         <div class="text-center py-3">
           <span
-            class="text-[10px] text-[#6b6b6b] bg-[#1C1C1E] px-3 py-1 rounded-full"
-            x-text="chatMode === 'brief' ? 'Claude a le contexte du brief + accès à ta base de bookmarks' : 'Claude a le contexte + accès recherche web, deep research & Reddit'"
+            class="text-[10px] text-[#6B665F] bg-[#1C1A17] px-3 py-1 rounded-full"
+            x-text="chatMode === 'brief' ? t('Claude a le contexte du brief + accès à ta base de bookmarks', 'Claude has brief context + access to your bookmarks database') : t('Claude a le contexte + accès recherche web, deep research & Reddit', 'Claude has context + web search, deep research & Reddit access')"
           ></span>
         </div>
 
@@ -1732,7 +1692,7 @@
             </div>
             <div
               class="max-w-[85%] rounded-2xl px-4 py-3 text-sm font-light leading-relaxed"
-              :class="msg.role === 'user' ? 'bg-[#E85D00]/15 text-[#E5E5EA] rounded-br-sm' : 'bg-[#1C1C1E] text-[#D1D1D6] border border-white/[0.05] rounded-tl-sm'"
+              :class="msg.role === 'user' ? 'bg-[#E85D00]/15 text-[#E5E1DB] rounded-br-sm' : 'bg-[#1C1A17] text-[#D1CBC4] border border-white/[0.05] rounded-tl-sm'"
             >
               <div x-html="renderChat(msg.content)"></div>
             </div>
@@ -1750,7 +1710,7 @@
             ></iconify-icon>
           </div>
           <div
-            class="bg-[#1C1C1E] border border-white/[0.05] rounded-2xl rounded-tl-sm px-4 py-3"
+            class="bg-[#1C1A17] border border-white/[0.05] rounded-2xl rounded-tl-sm px-4 py-3"
           >
             <div class="flex items-center gap-2">
               <div class="flex items-center gap-1.5">
@@ -1758,7 +1718,7 @@
                 <span class="w-1.5 h-1.5 bg-[#E85D00] rounded-full animate-bounce" style="animation-delay: 150ms"></span>
                 <span class="w-1.5 h-1.5 bg-[#E85D00] rounded-full animate-bounce" style="animation-delay: 300ms"></span>
               </div>
-              <span class="text-[10px] text-[#8E8E93] font-light" x-text="chatStatusText || 'Réflexion...'"></span>
+              <span class="text-[10px] text-[#8E887F] font-light" x-text="chatStatusText || t('Réflexion...', 'Thinking...')"></span>
             </div>
           </div>
         </div>
@@ -1766,31 +1726,31 @@
 
       <!-- Chat Input -->
       <div
-        class="border-t border-white/[0.05] p-4 bg-[#0a0a0c] shrink-0"
+        class="border-t border-white/[0.05] p-4 bg-[#0B0A08] shrink-0"
       >
         <div class="flex gap-2 mb-2 overflow-x-auto no-scrollbar">
           <template x-if="chatMode === 'bookmark'">
             <div class="flex gap-2">
               <button type="button" @click="chatInput = 'Quelles sont les alternatives ?'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Alternatives ?</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#8E887F] bg-[#1C1A17] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap" x-text="t('Alternatives ?', 'Alternatives?')"></button>
               <button type="button" @click="chatInput = 'Comment intégrer ça dans mes projets ?'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Pour mes projets ?</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#8E887F] bg-[#1C1A17] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap" x-text="t('Pour mes projets ?', 'For my projects?')"></button>
               <button type="button" @click="chatInput = 'Fais une recherche approfondie sur ce sujet avec articles, Reddit, HN et tweets'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#E85D00]/70 bg-[#E85D00]/10 border border-[#E85D00]/20 hover:bg-[#E85D00]/15 transition-colors whitespace-nowrap">Deep Research</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#E85D00]/70 bg-[#E85D00]/10 border border-[#E85D00]/20 hover:bg-[#E85D00]/15 transition-colors whitespace-nowrap">Deep Research</button>
               <button type="button" @click="chatInput = 'Cherche les discussions Reddit sur ce sujet — avis, retours, opinions de la communauté'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#FF6B35]/70 bg-[#FF6B35]/10 border border-[#FF6B35]/20 hover:bg-[#FF6B35]/15 transition-colors whitespace-nowrap">Reddit</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#FF6B35]/70 bg-[#FF6B35]/10 border border-[#FF6B35]/20 hover:bg-[#FF6B35]/15 transition-colors whitespace-nowrap">Reddit</button>
             </div>
           </template>
           <template x-if="chatMode === 'brief'">
             <div class="flex gap-2">
               <button type="button" @click="chatInput = 'Cherche dans mes bookmarks des ressources pertinentes pour ce brief'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#E85D00] bg-[#E85D00]/10 border border-[#E85D00]/20 hover:bg-[#E85D00]/20 transition-colors whitespace-nowrap">Chercher ressources</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#E85D00] bg-[#E85D00]/10 border border-[#E85D00]/20 hover:bg-[#E85D00]/20 transition-colors whitespace-nowrap" x-text="t('Chercher ressources', 'Search resources')"></button>
               <button type="button" @click="chatInput = 'Propose une stack alternative et mets à jour le brief'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Stack alternative</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#8E887F] bg-[#1C1A17] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap" x-text="t('Stack alternative', 'Alternative stack')"></button>
               <button type="button" @click="chatInput = 'Améliore le prompt Cursor pour le rendre plus détaillé'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Améliorer prompt</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#8E887F] bg-[#1C1A17] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap" x-text="t('Améliorer prompt', 'Improve prompt')"></button>
               <button type="button" @click="chatInput = 'Quels sont les risques que tu vois et comment les mitiger ?'; sendChat()"
-                class="px-2.5 py-1 rounded-full text-[10px] text-[#8E8E93] bg-[#1C1C1E] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap">Risques ?</button>
+                class="px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs md:text-[10px] text-[#8E887F] bg-[#1C1A17] border border-white/5 hover:bg-white/5 transition-colors whitespace-nowrap" x-text="t('Risques ?', 'Risks?')"></button>
             </div>
           </template>
         </div>
@@ -1799,8 +1759,8 @@
             type="text"
             x-model="chatInput"
             @keydown.enter.prevent="sendChat()"
-            :placeholder="chatMode === 'brief' ? 'Modifie la stack, ajoute des features, cherche des ressources...' : 'Pose une question sur ce contenu...'"
-            class="flex-1 bg-[#151517] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-[#E5E5EA] placeholder-[#6b6b6b] outline-none focus:border-white/15 font-light"
+            :placeholder="chatMode === 'brief' ? t('Modifie la stack, ajoute des features, cherche des ressources...', 'Edit the stack, add features, search for resources...') : t('Pose une question sur ce contenu...', 'Ask a question about this content...')"
+            class="flex-1 bg-[#14120F] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-[#E5E1DB] placeholder-[#6B665F] outline-none focus:border-white/15 font-light"
           />
           <button
             type="button"
@@ -1827,13 +1787,13 @@
 
     <!-- ═══ Mobile Bottom Navigation ═══ -->
     <nav
-      class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1C1C1E] border-t border-white/5 pb-[env(safe-area-inset-bottom)] pt-2 px-6 flex justify-between items-center z-50 h-[72px]"
+      class="md:hidden fixed bottom-0 left-0 right-0 bg-[#1C1A17] border-t border-white/5 pb-[env(safe-area-inset-bottom)] pt-2 px-6 flex justify-between items-center z-50 h-[72px]"
     >
       <button
         type="button"
         @click="tab = 'bookmarks'; selectedBm = null"
         class="flex flex-col items-center gap-1"
-        :class="tab === 'bookmarks' ? 'text-white' : 'text-[#8E8E93]'"
+        :class="tab === 'bookmarks' ? 'text-white' : 'text-[#8E887F]'"
       >
         <iconify-icon
           :icon="tab === 'bookmarks' ? 'solar:compass-bold' : 'solar:compass-linear'"
@@ -1845,7 +1805,7 @@
         type="button"
         @click="tab = 'backlog'; selectedBm = null"
         class="flex flex-col items-center gap-1"
-        :class="tab === 'backlog' ? 'text-white' : 'text-[#8E8E93]'"
+        :class="tab === 'backlog' ? 'text-white' : 'text-[#8E887F]'"
       >
         <iconify-icon
           :icon="tab === 'backlog' ? 'solar:checklist-minimalistic-bold' : 'solar:checklist-minimalistic-linear'"
@@ -1856,7 +1816,7 @@
       <button
         type="button"
         @click="showAddPanel = true; tab = 'bookmarks'"
-        class="w-12 h-12 rounded-full bg-[#E85D00] flex items-center justify-center shadow-md -mt-6 border-4 border-[#0A0A0C]"
+        class="w-12 h-12 rounded-full bg-[#E85D00] flex items-center justify-center shadow-md -mt-6 border-4 border-[#0B0A08]"
       >
         <iconify-icon
           icon="solar:magic-stick-3-bold"
@@ -1867,7 +1827,7 @@
         type="button"
         @click="tab = 'brief'; selectedBm = null"
         class="flex flex-col items-center gap-1"
-        :class="tab === 'brief' ? 'text-white' : 'text-[#8E8E93]'"
+        :class="tab === 'brief' ? 'text-white' : 'text-[#8E887F]'"
       >
         <iconify-icon
           :icon="tab === 'brief' ? 'solar:document-text-bold' : 'solar:document-text-linear'"
@@ -1877,14 +1837,15 @@
       </button>
       <button
         type="button"
-        @click="tab = 'bookmarks'; filter.verdict = ''; selectedBm = null"
-        class="flex flex-col items-center gap-1 text-[#8E8E93]"
+        @click="tab = 'settings'; selectedBm = null"
+        class="flex flex-col items-center gap-1"
+        :class="tab === 'settings' ? 'text-white' : 'text-[#8E887F]'"
       >
         <iconify-icon
-          icon="solar:history-linear"
+          :icon="tab === 'settings' ? 'solar:settings-bold' : 'solar:settings-linear'"
           class="text-xl"
         ></iconify-icon>
-        <span class="text-[10px] font-medium">History</span>
+        <span class="text-[10px] font-medium" x-text="t('Réglages', 'Settings')"></span>
       </button>
     </nav>
 
@@ -1931,6 +1892,7 @@
           chatMode: "bookmark",
           chatBriefId: null,
           chatBriefData: null,
+          lang: localStorage.getItem("sgnl-lang") || "fr",
 
           get allTags() {
             const tagMap = {};
@@ -1969,27 +1931,56 @@
                 const d = await r.json();
                 if (d.connected) {
                   this.connected = true;
-                  this.showToast("X connecté");
+                  this.showToast(this.t("X connecté", "X connected"));
                 } else {
-                  this.showToast(d.error || "Erreur connexion X", "error");
+                  this.showToast(d.error || this.t("Erreur connexion X", "X connection error"), "error");
                 }
               } catch (e) {
-                this.showToast("Erreur callback OAuth", "error");
+                this.showToast(this.t("Erreur callback OAuth", "OAuth callback error"), "error");
               }
             }
             await this.loadData();
             this.loading = false;
             await this.loadBriefs();
+            this.$watch("lang", (v) => localStorage.setItem("sgnl-lang", v));
+          },
+
+          setLang(v) {
+            this.lang = v;
+          },
+
+          t(fr, en) {
+            return this.lang === "en" ? en : fr;
+          },
+
+          _isUsableText(s) {
+            if (!s) return false;
+            const t = s.trim();
+            if (t.startsWith('{') || t.startsWith('[')) return false;
+            if (/^https?:\/\/\S+$/.test(t)) return false;
+            return true;
           },
 
           getTitle(bm) {
             const raw = bm.content || "";
+            const isUrlOnly = /^https?:\/\/\S+$/.test(raw.trim());
+            if (isUrlOnly || !this._isUsableText(raw)) {
+              const fallback = [bm.eli5, bm.summary, bm.conclusion]
+                .find(s => this._isUsableText(s));
+              if (fallback) {
+                const line = fallback.split(/\n/)[0].trim();
+                return line.length > 100 ? line.slice(0, 97) + "..." : line;
+              }
+              return bm.author_name
+                ? this.t(`Article de @${bm.author_username}`, `Post by @${bm.author_username}`)
+                : this.t("Article X", "X Post");
+            }
             const source =
               this.needsTranslation(raw) && (bm.summary || bm.eli5)
                 ? bm.summary || bm.eli5
                 : raw;
             const line = source.split(/\n/)[0].trim();
-            if (!line) return bm.author_name || "Sans titre";
+            if (!line) return bm.author_name || this.t("Sans titre", "Untitled");
             if (line.length > 100) return line.slice(0, 97) + "...";
             return line;
           },
@@ -2021,7 +2012,7 @@
             await this.loadData();
             await this.loadBriefs();
             this.refreshing = false;
-            this.showToast("Données actualisées");
+            this.showToast(this.t("Données actualisées", "Data refreshed"));
           },
 
           async loadData() {
@@ -2033,7 +2024,7 @@
               this.counts = d.counts;
               this.connected = d.connected;
             } catch (e) {
-              this.showToast("Erreur de chargement", "error");
+              this.showToast(this.t("Erreur de chargement", "Loading error"), "error");
             }
           },
 
@@ -2220,13 +2211,13 @@
             const r = await fetch("/api/oauth/url");
             const d = await r.json();
             if (d.url) window.location.href = d.url;
-            else this.showToast(d.error || "Erreur OAuth", "error");
+            else this.showToast(d.error || this.t("Erreur OAuth", "OAuth error"), "error");
           },
 
           async disconnectX() {
             await fetch("/api/oauth/disconnect", { method: "POST" });
             this.connected = false;
-            this.showToast("Déconnecté");
+            this.showToast(this.t("Déconnecté", "Disconnected"));
           },
 
           async importBookmarks() {
@@ -2240,10 +2231,10 @@
                 this.showToast(d.error, "error");
                 return;
               }
-              this.showToast(`${d.imported} bookmarks importés`);
+              this.showToast(this.t(`${d.imported} bookmarks importés`, `${d.imported} bookmarks imported`));
               await this.loadData();
             } catch (e) {
-              this.showToast("Erreur import", "error");
+              this.showToast(this.t("Erreur import", "Import error"), "error");
             } finally {
               this.importing = false;
             }
@@ -2301,15 +2292,15 @@
                 if (overloaded) break;
               }
               if (overloaded) {
-                this.showToast("L'API Claude est surchargée", "error");
+                this.showToast(this.t("L'API Claude est surchargée", "Claude API is overloaded"), "error");
               } else if (errors > 0) {
-                this.showToast(`${done} OK, ${errors} erreur(s)`, "error");
+                this.showToast(this.t(`${done} OK, ${errors} erreur(s)`, `${done} OK, ${errors} error(s)`), "error");
               } else {
-                this.showToast(`${done} analyses terminées`);
+                this.showToast(this.t(`${done} analyses terminées`, `${done} analyses completed`));
               }
             } catch (e) {
               console.error("[Analyse batch] error:", e);
-              this.showToast("Erreur réseau", "error");
+              this.showToast(this.t("Erreur réseau", "Network error"), "error");
             }
             await this.loadData();
             this.analyzing = false;
@@ -2320,16 +2311,16 @@
             try {
               const r = await fetch(`/api/reanalyze/${tweetId}`, { method: "POST" });
               if (r.status === 529) {
-                this.showToast("L'API Claude est surchargée", "error", () => this.reanalyze(tweetId));
+                this.showToast(this.t("L'API Claude est surchargée", "Claude API is overloaded"), "error", () => this.reanalyze(tweetId));
               } else if (r.ok) {
-                this.showToast("Re-analyse terminée");
+                this.showToast(this.t("Re-analyse terminée", "Re-analysis complete"));
               } else {
                 const d = await r.json().catch(() => ({}));
-                this.showToast(d.error || "Erreur analyse", "error");
+                this.showToast(d.error || this.t("Erreur analyse", "Analysis error"), "error");
               }
               await this.loadData();
             } catch (e) {
-              this.showToast("Erreur réseau", "error");
+              this.showToast(this.t("Erreur réseau", "Network error"), "error");
             } finally {
               this.analyzing = false;
             }
@@ -2338,13 +2329,13 @@
           async reanalyzeBatch(ids) {
             const n = ids.length;
             const mins = Math.ceil(n * 0.4);
-            if (!confirm(`Re-analyser ${n} éléments ?\n\n≈ ${mins} min · ${n} appels Claude\nLes analyses existantes seront écrasées.`)) return;
+            if (!confirm(this.t(`Re-analyser ${n} éléments ?\n\n≈ ${mins} min · ${n} appels Claude\nLes analyses existantes seront écrasées.`, `Re-analyze ${n} items?\n\n≈ ${mins} min · ${n} Claude calls\nExisting analyses will be overwritten.`))) return;
             await this.analyzeBatch(ids.map((id) => ({ tweet_id: id })));
           },
 
           async submitAdHoc() {
             if (!this.addUrls.trim() && !this.addFiles) {
-              this.showToast("Ajoute au moins un lien ou un fichier", "error");
+              this.showToast(this.t("Ajoute au moins un lien ou un fichier", "Add at least one link or file"), "error");
               return;
             }
             this.adHocLoading = true;
@@ -2366,19 +2357,19 @@
                 const overloaded = (d.results || []).some((r) => r.error === "overloaded");
                 const errors = (d.results || []).filter((r) => r.error).length;
                 if (overloaded) {
-                  this.showToast("L'API Claude est surchargée", "error", () => this.submitAdHoc());
+                  this.showToast(this.t("L'API Claude est surchargée", "Claude API is overloaded"), "error", () => this.submitAdHoc());
                 } else if (errors) {
-                  const errMsg = (d.results || []).find((r) => r.error)?.error || "Erreur inconnue";
+                  const errMsg = (d.results || []).find((r) => r.error)?.error || this.t("Erreur inconnue", "Unknown error");
                   this.showToast(errMsg, "error");
                 } else {
-                  this.showToast(`${n} analyse(s) OK`);
+                  this.showToast(this.t(`${n} analyse(s) OK`, `${n} analysis(es) OK`));
                 }
                 this.addUrls = "";
                 this.addFiles = null;
                 await this.loadData();
               }
             } catch (e) {
-              this.showToast("Erreur : " + e.message, "error");
+              this.showToast(this.t("Erreur : ", "Error: ") + e.message, "error");
             } finally {
               this.adHocLoading = false;
             }
@@ -2401,10 +2392,10 @@
                 return;
               }
               this.currentBrief = d;
-              this.showToast("Brief généré");
+              this.showToast(this.t("Brief généré", "Brief generated"));
               await this.loadBriefs();
             } catch (e) {
-              this.showToast("Erreur", "error");
+              this.showToast(this.t("Erreur", "Error"), "error");
             } finally {
               this.generatingBrief = false;
             }
@@ -2423,12 +2414,12 @@
           async deleteBrief(id) {
             await fetch(`/api/briefs/${id}`, { method: "DELETE" });
             this.briefs = this.briefs.filter((b) => b.id !== id);
-            this.showToast("Brief supprimé");
+            this.showToast(this.t("Brief supprimé", "Brief deleted"));
           },
 
           copyToClipboard(text) {
             navigator.clipboard.writeText(text || "");
-            this.showToast("Copié !");
+            this.showToast(this.t("Copié !", "Copied!"));
           },
 
           openChat() {
@@ -2489,10 +2480,10 @@
             this.chatInput = "";
             this.chatLoading = true;
             const ml = msg.toLowerCase();
-            if (ml.includes('reddit')) this.chatStatusText = 'Crawl Reddit en cours...';
-            else if (ml.includes('deep research') || ml.includes('approfondie')) this.chatStatusText = 'Recherche multi-sources...';
-            else if (ml.includes('recherche') || ml.includes('search') || ml.includes('cherche')) this.chatStatusText = 'Recherche web...';
-            else this.chatStatusText = 'Réflexion...';
+            if (ml.includes('reddit')) this.chatStatusText = this.t('Crawl Reddit en cours...', 'Crawling Reddit...');
+            else if (ml.includes('deep research') || ml.includes('approfondie')) this.chatStatusText = this.t('Recherche multi-sources...', 'Multi-source research...');
+            else if (ml.includes('recherche') || ml.includes('search') || ml.includes('cherche')) this.chatStatusText = this.t('Recherche web...', 'Web search...');
+            else this.chatStatusText = this.t('Réflexion...', 'Thinking...');
             this.$nextTick(() => this.scrollChat());
             try {
               let url, payload;
@@ -2511,7 +2502,7 @@
               });
               const d = await r.json();
               if (d.error) {
-                this.chatMessages.push({ role: "assistant", content: "Erreur : " + d.error });
+                this.chatMessages.push({ role: "assistant", content: this.t("Erreur : ", "Error: ") + d.error });
               } else {
                 this.chatMessages.push({ role: "assistant", content: d.reply });
                 // If brief was updated by Claude, refresh the brief data
@@ -2526,12 +2517,12 @@
                   }
                   this.chatMessages.push({
                     role: "assistant",
-                    content: "**Brief mis à jour** — les modifications sont appliquées.",
+                    content: this.t("**Brief mis à jour** — les modifications sont appliquées.", "**Brief updated** — changes have been applied."),
                   });
                 }
               }
             } catch (e) {
-              this.chatMessages.push({ role: "assistant", content: "Erreur de connexion." });
+              this.chatMessages.push({ role: "assistant", content: this.t("Erreur de connexion.", "Connection error.") });
             } finally {
               this.chatLoading = false;
               this.chatStatusText = "";
